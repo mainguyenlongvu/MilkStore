@@ -5,6 +5,7 @@ using MilkStore.Contract.Repositories.Entity;
 using MilkStore.Contract.Services.Interface;
 using MilkStore.Core.Base;
 using MilkStore.ModelViews.PreOrdersModelView;
+using MilkStore.Services.Service;
 
 namespace MilkStore.API.Controllers
 {
@@ -28,38 +29,22 @@ namespace MilkStore.API.Controllers
         [Authorize(Roles = "Member")]
         public async Task<IActionResult> CreatePreOrders(PreOrdersModelView preOrdersModel)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(new BaseException.BadRequestException("BadRequest", ModelState.ToString()));
-            }
-            PreOrders PreOrder = await _preOrdersService.CreatePreOrders(preOrdersModel);
-            return Ok(BaseResponse<PreOrders>.OkResponse(PreOrder));
+            await _preOrdersService.CreatePreOrders(preOrdersModel);
+            return Ok(BaseResponse<string>.OkResponse("Add pre-order successfully!"));
         }
         [HttpPut("{id}")]
         [Authorize(Roles = "Member")]
         public async Task<IActionResult> UpdatePreOrder(string id, [FromBody] PreOrdersModelView preOrdersModel)
         {
-            if (!ModelState.IsValid)
-            {
-                return NotFound($"Pre-order have ID: {id} was not found.");
-            }
-
-            try
-            {
-                PreOrders PreOrder = await _preOrdersService.UpdatePreOrders(id, preOrdersModel);
-                return Ok(BaseResponse<PreOrders>.OkResponse(PreOrder));
-            }
-            catch (Exception ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
+            await _preOrdersService.UpdatePreOrders(id, preOrdersModel);
+            return Ok(BaseResponse<string>.OkResponse("Update pre-order successfully"));
         }
         [HttpDelete("{id}")]
         [Authorize(Roles = "Member")]
         public async Task<IActionResult> DeletePreOrder(string id)
         {
             await _preOrdersService.DeletePreOrders(id);
-            return Ok();
+            return Ok(BaseResponse<string>.OkResponse("Delete pre-order successfully!"));
         }
     }
 }

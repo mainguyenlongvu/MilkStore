@@ -8,283 +8,319 @@ using Microsoft.EntityFrameworkCore;
 using MilkStore.ModelViews.ResponseDTO;
 using AutoMapper;
 using MilkStore.Repositories.Entity;
-using System.Security.Cryptography;
-using MilkStore.ModelViews.ProductsModelViews;
 using MilkStore.Services.EmailSettings;
+using Microsoft.AspNetCore.Identity;
+using MilkStore.Core;
+using System.Drawing.Printing;
+using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
+using MilkStore.Core.Base;
+using MilkStore.Core.Constants;
+using PaymentStatus = MilkStore.Contract.Repositories.Entity.PaymentStatus;
+using PaymentMethod = MilkStore.Contract.Repositories.Entity.PaymentMethod;
+using OrderStatus = MilkStore.Contract.Repositories.Entity.OrderStatus;
+using MilkStore.ModelViews.PreOrdersModelView;
 
 namespace MilkStore.Services.Service
 {
     public class OrderService : IOrderService
     {
         private readonly IUnitOfWork _unitOfWork;
-        private readonly DatabaseContext _context;
-        protected readonly DbSet<Order> _dbSet;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IUserService _userService;
         private readonly IMapper _mapper;
-        private readonly EmailService _emailService;
-        public OrderService(IUnitOfWork unitOfWork, DatabaseContext context, IMapper mapper, EmailService emailService)
+        private readonly IEmailService _emailService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        public OrderService(IUnitOfWork unitOfWork, IMapper mapper, IEmailService emailService, UserManager<ApplicationUser> userManager, IHttpContextAccessor httpContextAccessor, IUserService userService)
         {
             _unitOfWork = unitOfWork;
-            _context = context;
-            _dbSet = _context.Set<Order>();
             _mapper = mapper;
             _emailService = emailService;
+            _userManager = userManager;
+            _httpContextAccessor = httpContextAccessor;
+            _userService = userService;
         }
 
-        private OrderResponseDTO MapToOrderResponseDto(Order order)
+        public async Task<BasePaginatedList<OrderResponseDTO>> GetAsync(string? id, int pageIndex, int pageSize)
         {
-            return _mapper.Map<OrderResponseDTO>(order);
-        }
-        
-        public async Task<IEnumerable<OrderResponseDTO>> GetAsync(string? id)
-        {
-            try
+            IQueryable<Order>? query = _unitOfWork.GetRepository<Order>().Entities.Where(order => order.DeletedTime == null);
+            if (!string.IsNullOrWhiteSpace(id))
             {
-                if (string.IsNullOrWhiteSpace(id))
+                query = query.Where(order => order.Id == id);
+            }            
+            BasePaginatedList<Order>? paginatedOrders = await _unitOfWork.GetRepository<Order>().GetPagging(query, pageIndex, pageSize);
+
+            if (!paginatedOrders.Items.Any() && !string.IsNullOrWhiteSpace(id))
+            {                
+                Order? orderById = await query.FirstOrDefaultAsync();
+                if (orderById != null)
                 {
-                    List<Order> listOrder = await _dbSet.Where
-                        (e => !EF.Property<DateTimeOffset?>(e, "DeletedTime").HasValue)
-                        .ToListAsync();
-                    return listOrder.Select(MapToOrderResponseDto).ToList();
-                }
-                else
-                {
-                    Order ord = await _unitOfWork.GetRepository<Order>().Entities
-                        .FirstOrDefaultAsync(or => or.Id == id && !or.DeletedTime.HasValue)
-                        ?? throw new KeyNotFoundException($"Order với ID {id} không tìm thấy hoặc đã bị xóa.");
-                    return new List<OrderResponseDTO> { MapToOrderResponseDto(ord) };
-                }
+                    OrderResponseDTO? orderDto = _mapper.Map<OrderResponseDTO>(orderById);
+                    return new BasePaginatedList<OrderResponseDTO>(new List<OrderResponseDTO> { orderDto }, 1, 1, 1);
+                }                
             }
-            catch (KeyNotFoundException ex)
-            {
-                // Log lỗi chi tiết và trả về BadRequest
-                // Bạn có thể log lỗi tại đây nếu cần
-                throw new ArgumentException(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                // Log lỗi không mong muốn và trả về lỗi
-                // Tránh để lộ lỗi chi tiết cho phía client
-                throw new ApplicationException("Đã xảy ra lỗi khi xử lý yêu cầu của bạn.", ex);
-            }
+            //GetAll
+            List<OrderResponseDTO>? orderDtosResult = _mapper.Map<List<OrderResponseDTO>>(paginatedOrders.Items);
+            return new BasePaginatedList<OrderResponseDTO>(
+                orderDtosResult,
+                paginatedOrders.TotalItems,
+                paginatedOrders.CurrentPage,
+                paginatedOrders.PageSize
+            );
         }
 
         public async Task AddAsync(OrderModelView ord)
         {
-            try
+            string? userID = _httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userID))
             {
-                // Sử dụng mapper để ánh xạ từ OrderModelView sang Order
-                Order item = _mapper.Map<Order>(ord);
-                item.OrderDate = CoreHelper.SystemTimeNow;
-                DateTimeOffset d1 = item.OrderDate.AddDays(3);
-                DateTimeOffset d2 = item.OrderDate.AddDays(5);
-                item.estimatedDeliveryDate = $"từ {d1:dd/MM/yyyy} đến {d2:dd/MM/yyyy}";
-
-                // Đảm bảo gán các giá trị khác không được ánh xạ từ model view
-                item.TotalAmount = 0;
-                item.DiscountedAmount = 0;
-
-                // Kiểm tra sự tồn tại của User
-                if (await _unitOfWork.GetRepository<ApplicationUser>().Entities
-                        .AnyAsync(u => u.Id == ord.UserId) == false)
-                {
-                    throw new KeyNotFoundException($"User với ID {ord.UserId} không tồn tại.");
-                }
-
-                await _unitOfWork.GetRepository<Order>().InsertAsync(item);
-                await _unitOfWork.SaveAsync();
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Please log in first!");
             }
-            catch (KeyNotFoundException ex) 
-            {
-                // Log lỗi chi tiết và trả về BadRequest
-                // Bạn có thể log lỗi tại đây nếu cần
-                throw new ArgumentException(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                // Log lỗi không mong muốn và trả về lỗi
-                // Tránh để lộ lỗi chi tiết cho phía client
-                throw new ApplicationException("Đã xảy ra lỗi khi xử lý yêu cầu của bạn.", ex);
-            }
+            // Sử dụng mapper để ánh xạ từ OrderModelView sang Order
+            Order item = _mapper.Map<Order>(ord);
+            item.UserId = Guid.Parse(userID);
+            item.CreatedBy = userID;            
+            item.OrderDate = CoreHelper.SystemTimeNow;
+            DateTimeOffset d1 = item.OrderDate.AddDays(3);
+            DateTimeOffset d2 = item.OrderDate.AddDays(5);
+            item.estimatedDeliveryDate = $"từ {d1:dd/MM/yyyy} đến {d2:dd/MM/yyyy}";
+
+            // Đảm bảo gán các giá trị khác không được ánh xạ từ model view
+            item.TotalAmount = 0;
+            item.DiscountedAmount = 0;
+            item.PaymentStatuss = PaymentStatus.Unpaid;
+            item.OrderStatuss = OrderStatus.Pending;
+
+            await _unitOfWork.GetRepository<Order>().InsertAsync(item);
+            await _unitOfWork.SaveAsync();                    
         }
 
-        public async Task UpdateAsync(string id, OrderModelView ord)
+        public async Task UpdateAsync(string id, OrderModelView ord, OrderStatus orderStatus, PaymentStatus paymentStatus, PaymentMethod paymentMethod)
         {
-            try
+            string? userID = _httpContextAccessor.HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier).Value;
+            if (string.IsNullOrWhiteSpace(userID))
             {
-                // Lấy đối tượng hiện tại từ cơ sở dữ liệu
-                Order orderss = await _unitOfWork.GetRepository<Order>().Entities
-                    .FirstOrDefaultAsync(or => or.Id == id && !or.DeletedTime.HasValue)
-                    ?? throw new KeyNotFoundException($"Order với ID {id} không tìm thấy hoặc đã bị xóa.");
-
-                // Sử dụng AutoMapper để ánh xạ những thay đổi
-                _mapper.Map(ord, orderss);  // Chỉ ánh xạ những thuộc tính có giá trị khác biệt
-
-                if (await _unitOfWork.GetRepository<ApplicationUser>().Entities
-                        .AnyAsync(u => u.Id == ord.UserId) == false)
-                {
-                    throw new KeyNotFoundException($"User với ID {ord.UserId} không tồn tại.");
-                }
-
-                // Cập nhật thời gian cập nhật
-                orderss.LastUpdatedTime = CoreHelper.SystemTimeNow;
-
-                // Lưu thay đổi vào cơ sở dữ liệu
-                await _unitOfWork.GetRepository<Order>().UpdateAsync(orderss);
-                await _unitOfWork.SaveAsync();
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Please log in!");
             }
-            catch (KeyNotFoundException ex)
-            {
-                // Log lỗi chi tiết và trả về BadRequest
-                // Bạn có thể log lỗi tại đây nếu cần
-                throw new ArgumentException(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                // Log lỗi không mong muốn và trả về lỗi
-                // Tránh để lộ lỗi chi tiết cho phía client
-                throw new ApplicationException("Đã xảy ra lỗi khi xử lý yêu cầu của bạn.", ex);
-            }
-        }
-
-        //Cập nhật TotalAmount
-        public async Task UpdateToTalAmount (string id)
-        {
-
-            try
-            {
-                Order ord = await _unitOfWork.GetRepository<Order>().Entities
+            // Lấy đối tượng hiện tại từ cơ sở dữ liệu
+            Order orderss = await _unitOfWork.GetRepository<Order>().Entities
                 .FirstOrDefaultAsync(or => or.Id == id && !or.DeletedTime.HasValue)
-                ?? throw new KeyNotFoundException($"Order với ID {id} không tìm thấy hoặc đã bị xóa.");
-                List<OrderDetails> lstOrd = await _unitOfWork.GetRepository<OrderDetails>().Entities
-                    .Where(ordt => ordt.OrderID == id && !ordt.DeletedTime.HasValue).ToListAsync();
-                ord.TotalAmount = lstOrd.Sum(o => o.TotalAmount);
+                ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Order with ID  {id}  not found or has already been deleted."); 
 
-                double discountAmount = 0;
-                //Tính thành tiền áp dụng ưu đãi
-                Voucher vch = await _unitOfWork.GetRepository<Voucher>().Entities
-                    .FirstOrDefaultAsync(v => v.Id == ord.VoucherId && !v.DeletedTime.HasValue);
-                if (vch is
-                    {
-                        ExpiryDate: var expiryDate,
-                        LimitSalePrice: var limitSalePrice,
-                        SalePercent: var salePercent,
-                        UsedCount: var usedCount,
-                        UsingLimit: var usingLimit
-                    })
-                {
-                    if (expiryDate > ord.OrderDate
-                        && Convert.ToDouble(limitSalePrice) <= ord.TotalAmount
-                        && usedCount < usingLimit)
-                    {
-                        discountAmount = (ord.TotalAmount * salePercent) / 100.0;
-                    }
-                }
-                ord.DiscountedAmount = ord.TotalAmount - discountAmount;
-                await _unitOfWork.GetRepository<Order>().UpdateAsync(ord);
+            // Sử dụng AutoMapper để ánh xạ những thay đổi
+            _mapper.Map(ord, orderss);  // Chỉ ánh xạ những thuộc tính có giá trị khác biệt
+
+            // Cập nhật trạng thái đơn hàng
+            orderss.OrderStatuss = orderStatus;
+            orderss.PaymentStatuss = paymentStatus;
+            orderss.PaymentMethod = paymentMethod;
+
+            // Cập nhật thời gian cập nhật
+            orderss.LastUpdatedTime = CoreHelper.SystemTimeNow;
+            orderss.LastUpdatedBy = userID;
+
+            // Lưu thay đổi vào cơ sở dữ liệu
+            await _unitOfWork.GetRepository<Order>().UpdateAsync(orderss);
+            await _unitOfWork.SaveAsync();                
+            
+        }
+        public async Task UpdateUserPoint(string id)
+        {
+            if(string.IsNullOrWhiteSpace(id))
+            {
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Order ID cannot be null");
+            }
+            Order? order = await _unitOfWork.GetRepository<Order>().GetByIdAsync(id)?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Order not found");
+            ApplicationUser? user = await _userManager.FindByIdAsync(order.UserId.ToString())?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "User not found");
+            if(order.OrderStatuss == OrderStatus.Delivered && order.PaymentStatuss == PaymentStatus.Paid && !order.IsPointAdded)
+            {
+                await _userService.AccumulatePoints(user.Id.ToString(), order.TotalAmount);
+                order.PointsAdded = (int)(order.TotalAmount / 10000) * 10;
+                order.IsPointAdded = true;
+                await _unitOfWork.GetRepository<Order>().UpdateAsync(order);
                 await _unitOfWork.SaveAsync();
             }
-            catch (KeyNotFoundException ex)
+        }
+        //Cập nhật TotalAmount
+        public async Task UpdateToTalAmount(string id)
+        {
+            Order ord = await _unitOfWork.GetRepository<Order>().Entities
+            .FirstOrDefaultAsync(or => or.Id == id && !or.DeletedTime.HasValue)
+            ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Order with ID  {id}  not found or has already been deleted.");
+
+            List<OrderDetails> lstOrd = await _unitOfWork.GetRepository<OrderDetails>().Entities
+                .Where(ordt => ordt.OrderID == id && !ordt.DeletedTime.HasValue).ToListAsync();
+            ord.TotalAmount = lstOrd.Sum(o => o.TotalAmount);
+
+            double discountAmount = 0;
+            //Tính thành tiền áp dụng ưu đãi
+            Voucher? vch = await _unitOfWork.GetRepository<Voucher>().Entities
+                .FirstOrDefaultAsync(v => v.Id == ord.VoucherId && !v.DeletedTime.HasValue);
+            if (vch is
+                {
+                    ExpiryDate: DateTime expiryDate,
+                    LimitSalePrice: int limitSalePrice,
+                    SalePercent: int salePercent,
+                    UsedCount: int usedCount,
+                    UsingLimit: int usingLimit
+                })
             {
-                // Log lỗi chi tiết và trả về BadRequest
-                // Bạn có thể log lỗi tại đây nếu cần
-                throw new ArgumentException(ex.Message);
+                if (expiryDate > ord.OrderDate
+                    && Convert.ToDouble(limitSalePrice) <= ord.TotalAmount
+                    && usedCount < usingLimit)
+                {
+                    discountAmount = (ord.TotalAmount * salePercent) / 100.0;
+                }
             }
-            catch (Exception ex)
-            {
-                // Log lỗi không mong muốn và trả về lỗi
-                // Tránh để lộ lỗi chi tiết cho phía client
-                throw new ApplicationException("Đã xảy ra lỗi khi xử lý yêu cầu của bạn.", ex);
-            }
+            ord.DiscountedAmount = ord.TotalAmount - discountAmount;
+            await _unitOfWork.GetRepository<Order>().UpdateAsync(ord);
+            await _unitOfWork.SaveAsync();            
         }
 
         public async Task AddVoucher(string id, string voucherId)
         {
-            try
-            {
-                Order orderss = await _unitOfWork.GetRepository<Order>().Entities
-                    .FirstOrDefaultAsync(or => or.Id == id && !or.DeletedTime.HasValue)
-                    ?? throw new KeyNotFoundException($"Order với ID {id} không tìm thấy hoặc đã bị xóa");
+            Order orderss = await _unitOfWork.GetRepository<Order>().Entities
+                .FirstOrDefaultAsync(or => or.Id == id && !or.DeletedTime.HasValue)
+                ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Order with ID  {id}  not found or has already been deleted.");
 
-                // Kiểm tra sự tồn tại của Voucher
-                Voucher vch = await _unitOfWork.GetRepository<Voucher>().Entities
-                        .FirstOrDefaultAsync(v => v.Id == voucherId && !v.DeletedTime.HasValue)
-                        ?? throw new KeyNotFoundException($"Voucher với ID {voucherId} không tồn tại.");
+            // Kiểm tra sự tồn tại của Voucher
+            Voucher vch = await _unitOfWork.GetRepository<Voucher>().Entities
+                    .FirstOrDefaultAsync(v => v.Id == voucherId && !v.DeletedTime.HasValue)
+                    ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Voucher with ID {voucherId} not found."); 
 
-                if (vch.ExpiryDate < orderss.OrderDate) 
-                {
-                    throw new KeyNotFoundException($"Voucher đã hết thời hạn áp dụng.");
-                }
-                vch.UsedCount++;
-                await _unitOfWork.GetRepository<Voucher>().UpdateAsync(vch);
+            if (vch.ExpiryDate < orderss.OrderDate)
+            {
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, $"The voucher has expired.");
+            }
+            vch.UsedCount++;
+            await _unitOfWork.GetRepository<Voucher>().UpdateAsync(vch);
 
-                orderss.VoucherId = vch.Id;
-                await _unitOfWork.GetRepository<Order>().UpdateAsync(orderss);
-                await _unitOfWork.SaveAsync();
-                await UpdateToTalAmount(orderss.Id);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                // Log lỗi chi tiết và trả về BadRequest
-                // Bạn có thể log lỗi tại đây nếu cần
-                throw new ArgumentException(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                // Log lỗi không mong muốn và trả về lỗi
-                // Tránh để lộ lỗi chi tiết cho phía client
-                throw new ApplicationException("Đã xảy ra lỗi khi xử lý yêu cầu của bạn.", ex);
-            }
+            orderss.VoucherId = vch.Id;
+            await _unitOfWork.GetRepository<Order>().UpdateAsync(orderss);
+            await _unitOfWork.SaveAsync();
+            await UpdateToTalAmount(orderss.Id);       
         }
 
         public async Task DeleteAsync(string id)
         {
-            try
+            Order orderss = await _unitOfWork.GetRepository<Order>().Entities
+                .FirstOrDefaultAsync(or => or.Id == id && !or.DeletedTime.HasValue)
+                ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Order with ID  {id}  not found or has already been deleted.");
+
+            // Kiểm tra xem Order này có bất kỳ OrderDetails nào liên kết không
+            bool hasOrderDetails = await _unitOfWork.GetRepository<OrderDetails>().Entities
+                .AnyAsync(od => od.OrderID == id);
+
+            if (hasOrderDetails)
             {
-                Order orderss = await _unitOfWork.GetRepository<Order>().Entities
-                    .FirstOrDefaultAsync(or => or.Id == id && !or.DeletedTime.HasValue)
-                    ?? throw new KeyNotFoundException($"Order với ID {id} không tìm thấy hoặc đã bị xóa");
-                orderss.DeletedTime = CoreHelper.SystemTimeNow;
-                await _unitOfWork.GetRepository<Order>().UpdateAsync(orderss);
-                await _unitOfWork.SaveAsync();
+                // Trả về thông báo lỗi nếu tồn tại OrderDetails
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, $"Order with ID {id} is linked to OrderDetails and cannot be deleted.");
             }
-            catch (KeyNotFoundException ex)
-            {
-                // Log lỗi chi tiết và trả về BadRequest
-                // Bạn có thể log lỗi tại đây nếu cần
-                throw new ArgumentException(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                // Log lỗi không mong muốn và trả về lỗi
-                // Tránh để lộ lỗi chi tiết cho phía client
-                throw new ApplicationException("Đã xảy ra lỗi khi xử lý yêu cầu của bạn.", ex);
-            }
+
+            orderss.DeletedTime = CoreHelper.SystemTimeNow;
+            await _unitOfWork.GetRepository<Order>().UpdateAsync(orderss);
+            await _unitOfWork.SaveAsync();                        
         }
 
-        public async Task GetStatus_Mail(string? id)
+
+        public async Task SendingPaymentStatus_Mail(string id)
         {
-            Order order = await _unitOfWork.GetRepository<Order>().GetByIdAsync(id);
-            ApplicationUser user = await _unitOfWork.GetRepository<ApplicationUser>().GetByIdAsync(order.UserId);
-            if (order != null && order.DeletedTime == null)
+            if(string.IsNullOrWhiteSpace(id))
             {
-                if (order.UserId == user.Id)
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Order ID cannot be null");
+            }
+            Order? order = await _unitOfWork.GetRepository<Order>().GetByIdAsync(id);
+            if (order == null || order.DeletedTime != null)
+            {
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Order not found");
+            }
+            ApplicationUser? user = await _userManager.FindByIdAsync(order.UserId.ToString());
+            if (user == null)
+            {
+                   throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "User not found");
+            }
+
+            if (order.PaymentMethod == PaymentMethod.Online && order.PaymentStatuss == PaymentStatus.Paid)
+            {
+                await _emailService.SendEmailAsync(user.Email, "Đơn hàng " + order.Id + " đã thanh toán thành công.", "Thời gian giao hàng dự kiến " + order.estimatedDeliveryDate + ". Cảm ơn quý khách đã mua hàng tại MilkStore");                        
+            }
+            if (order.PaymentMethod == PaymentMethod.COD && order.PaymentStatuss == PaymentStatus.Unpaid)
+            {
+                if(order.OrderStatuss == OrderStatus.Confirmed)
                 {
-                    if (order.Status.Equals("successful payment") && order.PaymentMethod.Equals("Online"))
+                    await _emailService.SendEmailAsync(user.Email, "Đơn hàng " + order.Id + " đã được xác nhận.", "Thời gian giao hàng dự kiến " + order.estimatedDeliveryDate + ". Quý khách vui lòng thanh toán số tiền: " + order.TotalAmount + "VNĐ khi nhận hàng. Cảm ơn quý khách đã mua hàng tại MilkStore!");
+                }
+            }
+                          
+        }
+        public async Task SendingOrderStatus_Mail(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Order ID cannot be null");
+            }
+            Order? order = await _unitOfWork.GetRepository<Order>().GetByIdAsync(id);
+            if (order == null || order.DeletedTime != null)
+            {
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Order not found");
+            }
+            ApplicationUser? user = await _userManager.FindByIdAsync(order.UserId.ToString());
+            if (user == null)
+            {
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "User not found");
+            }
+            if (order.OrderStatuss != OrderStatus.Pending)
+            {
+                string subject = "Đơn hàng của quý khách: " + order.User.UserName + " vừa được cập nhật";
+                string message = "Trạng thái đơn hàng: " + order.Id + " đã được thay đổi thành: " + order.OrderStatuss + ". Cảm ơn quý khách đã mua hàng tại MilkStore.";
+
+                await _emailService.SendEmailAsync(user.Email, subject, message);                
+            }               
+        }
+
+
+        public async Task UpdateInventoryQuantity(string orderId)
+        {
+            if (string.IsNullOrWhiteSpace(orderId))
+            {
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Order ID cannot be null");
+            }
+            
+            Order order = await _unitOfWork.GetRepository<Order>().Entities
+                .FirstOrDefaultAsync(o => o.Id == orderId && !o.DeletedTime.HasValue)
+                ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Order not found");
+
+            if (order.OrderStatuss == OrderStatus.Confirmed && !order.IsInventoryUpdated)
+            {                
+                List<OrderDetails> orderDetailsList = await _unitOfWork.GetRepository<OrderDetails>().Entities
+                    .Where(od => od.OrderID == order.Id).ToListAsync();
+
+                // Loop through the order details to deduct stock
+                foreach (var orderDetail in orderDetailsList)
+                {
+                    Products? product = await _unitOfWork.GetRepository<Products>().GetByIdAsync(orderDetail.ProductID);
+                    if(product == null)
                     {
-                        _emailService.SendEmailAsync(user.Email, "Đơn hàng " + order.TotalAmount + " thanh toán thành công", "Thời gian giao hàng dự kiến " + order.estimatedDeliveryDate + ". Cảm ơn quý khách đã mua hàng tại MilkStore");
-                        order.Status = "successful payment - DONE";
+                        throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Product with ID {orderDetail.ProductID} not found");
+                    }
+                    if (product.QuantityInStock >= orderDetail.Quantity)
+                    {
+                        product.QuantityInStock -= orderDetail.Quantity; // Deduct quantity                        
+                        await _unitOfWork.GetRepository<Products>().UpdateAsync(product);
+
+                        order.IsInventoryUpdated = true;
                         await _unitOfWork.GetRepository<Order>().UpdateAsync(order);
+
                         await _unitOfWork.SaveAsync();
                     }
-                    if (order.PaymentMethod.Equals("Offline"))
+                    else
                     {
-                        _emailService.SendEmailAsync(user.Email, "Đơn hàng " + order.TotalAmount + " thanh toán khi nhận hàng", "Thời gian giao hàng dự kiến " + order.estimatedDeliveryDate + ". Cảm ơn quý khách đã mua hàng tại MilkStore");
-                        order.Status = "successful payment - DONE";
-                        await _unitOfWork.GetRepository<Order>().UpdateAsync(order);
-                        await _unitOfWork.SaveAsync();
+                        throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, $"Not enough stock for product {product.ProductName}");
                     }
                 }
 
+                // Save changes
+                await _unitOfWork.SaveAsync();
             }
         }
     }

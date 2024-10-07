@@ -26,13 +26,83 @@ namespace MilkStore.Repositories.Context
         public virtual DbSet<PreOrders> PreOrders => Set<PreOrders>();
         public virtual DbSet<Category> Category => Set<Category>();
         public virtual DbSet<Gift> Gifts => Set<Gift>();
+        public virtual DbSet<OrderGift> OrderGifts => Set<OrderGift>();
+        public virtual DbSet<OrderDetailGift> OrderDetailGifts => Set<OrderDetailGift>();
         #endregion
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+
+            modelBuilder.Entity<ApplicationUser>()
+                .HasOne(u => u.Manager)
+                .WithMany(u => u.Members)
+                .HasForeignKey(u => u.ManagerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ApplicationUser>(entity =>
+            {
+                entity.ToTable("Users");
+            });
+
+            modelBuilder.Entity<ApplicationRole>(entity =>
+            {
+                entity.ToTable("Roles");
+            });
+
+            modelBuilder.Entity<ApplicationUserClaims>(entity =>
+            {
+                entity.ToTable("UserClaims");
+            });
+
+            modelBuilder.Entity<ApplicationUserRoles>(entity =>
+            {
+                entity.ToTable("UserRoles");
+            });
+
+            modelBuilder.Entity<ApplicationUserLogins>(entity =>
+            {
+                entity.ToTable("UserLogins");
+            });
+
+            modelBuilder.Entity<ApplicationRoleClaims>(entity =>
+            {
+                entity.ToTable("RoleClaims");
+            });
+
+            modelBuilder.Entity<ApplicationUserTokens>(entity =>
+            {
+                entity.ToTable("UserTokens");
+            });
+
+
+
             //modelBuilder.Entity<Post>()
             //    .HasMany(p => p.Products)
             //    .WithMany(p => p.Posts)
-            //    .UsingEntity(j => j.ToTable("PostProducts"));  // Custom join table
+            //    .UsingEntity(j => j.ToTable("PostProducts"));  // Custom join table\
+            modelBuilder.Entity<Gift>()
+                .HasOne(o => o.Products)
+                .WithMany(v => v.Gifts)
+                .HasForeignKey(o => o.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<OrderDetailGift>()
+                .HasOne(o => o.Gift)
+                .WithMany(v => v.OrderDetailGifts)
+                .HasForeignKey(o => o.GiftId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<OrderDetailGift>()
+                .HasOne(o => o.orderGift)
+                .WithMany(v => v.OGifts)
+                .HasForeignKey(o => o.OrderGiftId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+
+            modelBuilder.Entity<OrderGift>()
+                .HasOne(o => o.User)
+                .WithMany(v => v.orderGift)
+                .HasForeignKey(o => o.UserID);
+
+
             //Add FK_Order_Voucher
             modelBuilder.Entity<Order>()
                 .HasOne(o => o.Voucher)
@@ -66,6 +136,20 @@ namespace MilkStore.Repositories.Context
                 .HasKey(ur => new { ur.UserId, ur.RoleId });
             modelBuilder.Entity<ApplicationUserTokens>()
             .HasKey(t => new { t.UserId, t.LoginProvider, t.Name });
+
+            modelBuilder.Entity<Review>()
+                .HasOne(r => r.OrderDetails)
+                .WithMany()
+                .HasForeignKey(r => r.OrderDetailID)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Review>()
+                .HasOne(r => r.User)
+                .WithMany()
+                .HasForeignKey(r => r.UserID)
+                .OnDelete(DeleteBehavior.NoAction);
+
+
         }
     }
 }

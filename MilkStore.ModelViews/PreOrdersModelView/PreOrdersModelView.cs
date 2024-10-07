@@ -6,12 +6,17 @@ using System.Threading.Tasks;
 
 namespace MilkStore.ModelViews.PreOrdersModelView
 {
+    public enum PreOrderStatus
+    {
+        Pending,
+        Available,
+        Confirmed
+    }
     public class PreOrdersModelView
     {
-        public string UserID { get; set; }
-        public string ProductID { get; set; }
-        public DateTime PreoderDate { get; set; }
-        public required string Status { get; set; }
+        public required Guid UserID { get; set; }
+        public string ProductID { get; set; }        
+        public required PreOrderStatus Status { get; set; }
         public required int Quantity { get; set; }
     }
 }

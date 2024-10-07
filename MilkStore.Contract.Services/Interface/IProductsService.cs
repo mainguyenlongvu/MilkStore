@@ -1,16 +1,16 @@
 ﻿using MilkStore.Contract.Repositories.Entity;
 using MilkStore.Core;
 using MilkStore.ModelViews.ProductsModelViews;
+using MilkStore.ModelViews.ResponseDTO;
 
 namespace MilkStore.Contract.Services.Interface
 {
     public interface IProductsService
     {
-        Task<IEnumerable<ProductsModel>> GetProducts(string? id);
-        Task<Products> CreateProducts(ProductsModel productsModel);
-        Task<Products> UpdateProducts(string id,ProductsModel productsModel);
-        Task<Products> DeleteProducts(object id);
-        Task<BasePaginatedList<Products>> PagingProducts(int page, int pageSize);
-        Task<IEnumerable<ProductsModel>> GetProductsName(string? Name);
+        Task<BasePaginatedList<ProductResponseDTO>> GetProducts(string? id, int pageIndex, int pageSize);
+        Task CreateProducts(ProductsModel productsModel);
+        Task UpdateProducts(string id, ProductsModel productsModel);
+        Task DeleteProducts(string id);
+        Task<IEnumerable<ProductResponseDTO>> GetProductsName(string? ProductdName, string? CategoryName);
     }
 }

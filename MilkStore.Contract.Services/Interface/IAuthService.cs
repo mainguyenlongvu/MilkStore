@@ -1,15 +1,18 @@
-using Microsoft.AspNetCore.Identity;
-using MilkStore.ModelViews.AuthModelViews;
-using MilkStore.Repositories.Entity;
 
-public interface IAuthService
+using MilkStore.ModelViews.AuthModelViews;
+
+namespace MilkStore.Contract.Repositories.Interface
 {
-    Task<ApplicationUser> ExistingUser(string userName);
-    Task<ApplicationUser> CheckRefreshToken(string refreshToken);
-    Task ChangePasswordAdmin(string id, ChangePasswordAdminModel model);
-    Task<SignInResult> CheckPassword(LoginModelView loginModel);
-    (string token, IEnumerable<string> roles) GenerateJwtToken(ApplicationUser user);
-    Task<string> GenerateRefreshToken(ApplicationUser user);
-    Task<string> ForgotPassword(string email);
-    Task ResetPassword(string email, string password, string token);
+    public interface IAuthService
+    {
+        Task<AuthResponse> Login(LoginModelView loginModel);
+        Task<AuthResponse> RefreshToken(RefreshTokenModel refreshTokenModel);
+        Task Register(RegisterModelView registerModelView);
+        Task VerifyOtp(ConfirmOTPModel model, bool isResetPassword);
+        Task ResendConfirmationEmail(EmailModelView emailModelView);
+        Task ChangePassword(ChangePasswordModel model);
+        Task ForgotPassword(EmailModelView emailModelView);
+        Task ResetPassword(ResetPasswordModel resetPassword);
+        Task<AuthResponse> LoginGoogle(TokenGoogleModel googleModel);
+    }
 }

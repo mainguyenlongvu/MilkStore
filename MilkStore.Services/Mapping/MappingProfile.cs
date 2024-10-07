@@ -11,6 +11,11 @@ using MilkStore.ModelViews.ReviewsModelView;
 using MilkStore.ModelViews.PreOrdersModelView;
 using MilkStore.ModelViews.PostModelViews;
 using MilkStore.ModelViews.VoucherModelViews;
+using MilkStore.ModelViews.GiftModelViews;
+using MilkStore.ModelViews.OrderGiftModelViews;
+using MilkStore.ModelViews.AuthModelViews;
+using MilkStore.ModelViews.OrderDetailGiftModelView;
+using MilkStore.ModelViews.RoleModelView;
 
 
 namespace MilkStore.Services.Mapping
@@ -20,21 +25,26 @@ namespace MilkStore.Services.Mapping
     {
         public MappingProfile()
         {
+            CreateMap<ApplicationUser, UserProfileResponseModelView>().ReverseMap();
 
-            CreateMap<ApplicationUser, LoginGoogleModel>().ReverseMap();
+            CreateMap<ApplicationUser, RegisterModelView>().ReverseMap();
 
+            CreateMap<OrderDetailGiftModel, OrderDetailGift>();
+            CreateMap<OrderDetailGift, OrderDetailGiftResponseDTO>();
+            CreateMap<GiftModel, Gift>();
+            CreateMap<Gift, GiftResponseDTO>();
+            CreateMap<OrderGiftModel, OrderGift>();
+            CreateMap<OrderGift, OrderGiftResponseDTO>();
 
-
-
-            CreateMap<Category, CategoryModel>();
             CreateMap<CategoryModel, Category>();
+            CreateMap<Category, CategoryResponseDTO>();
 
             #region Post
             CreateMap<PostModelView, Post>();
             CreateMap<Post, PostResponseDTO>()
                 .ForMember(dest => dest.Products, opt => opt.MapFrom(src => src.PostProducts.Select(pp => new ProductResponseDTO
                 {
-                    ProductID = pp.Product.Id,
+                    Id = pp.Product.Id,
                     ProductName = pp.Product.ProductName,
                     Description = pp.Product.Description,
                     Price = pp.Product.Price,
@@ -44,9 +54,8 @@ namespace MilkStore.Services.Mapping
                 }).ToList()));
             #endregion
 
-            CreateMap<Products, ProductsModel>();
             CreateMap<ProductsModel, Products>();
-
+            CreateMap<Products, ProductResponseDTO>();
             CreateMap<UserModelView, ApplicationUser>()
             .ForMember(dest => dest.Points, opt => opt.MapFrom(src => 0)) // Set Points to 0
             .ForMember(dest => dest.CreatedTime, opt => opt.MapFrom(src => DateTimeOffset.UtcNow));
@@ -56,7 +65,12 @@ namespace MilkStore.Services.Mapping
             .ForMember(dest => dest.LastUpdatedTime, opt => opt.Ignore())
             .ForMember(dest => dest.Points, opt => opt.Ignore()); // Nếu không muốn ánh xạ Points
 
-            CreateMap<OrderModelView, Order>().ReverseMap();
+            CreateMap<ApplicationRole, RoleViewModel>()
+            .ForMember(dest => dest.RoleId, opt => opt.MapFrom(src => src.Id))
+            .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Name));
+            CreateMap<UserUpdateModelView, ApplicationUser>().ReverseMap();
+
+            CreateMap<Order, OrderModelView>().ReverseMap();
             CreateMap<Order, OrderResponseDTO>()
                 .ForMember(dest => dest.OrderDetailss, opt => opt.MapFrom(src => src.OrderDetailss));
 
@@ -70,10 +84,15 @@ namespace MilkStore.Services.Mapping
             CreateMap<OrderModelView, Order>()
                 .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null)); // Chỉ ánh xạ khi giá trị mới khác null
 
-            CreateMap<Review, ReviewsModel>().ReverseMap();
-            CreateMap<PreOrders, PreOrdersModelView>().ReverseMap();
+            CreateMap<Review, ReviewsModel>().ReverseMap()
+                .ForMember(dest => dest.UserID, opt => opt.Ignore()); // Bỏ qua UserID khi map từ ReviewsModel sang Review
+
+
+            CreateMap<PreOrders, PreOrdersModelView>().ReverseMap()
+                .ForMember(dest => dest.UserID, opt => opt.Ignore()); // Bỏ qua UserID khi map từ PreOrdersModelView sang PreOrders
 
             CreateMap<Voucher, VoucherModelView>().ReverseMap();
+            CreateMap<Voucher, VoucherResponseDTO>();
         }
     }
 }

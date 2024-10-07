@@ -7,8 +7,8 @@ namespace MilkStore.Contract.Repositories.Entity
     {
         public int point { get; set; }
         public string GiftName { get; set; }
-
-        [ForeignKey("ProductId")]
+        public string? ProductId { get; set; }
         public virtual Products Products { get; set; }
+        public virtual ICollection<OrderDetailGift> OrderDetailGifts { get; set; }
     }
 }

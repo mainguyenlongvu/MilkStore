@@ -1,4 +1,5 @@
 ﻿using MilkStore.Core.Base;
+using MilkStore.Core.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,7 +16,7 @@ namespace MilkStore.Contract.Repositories.Entity
         public required int Quantity { get; set; }
         public double UnitPrice { get; set; }
         public double TotalAmount => Quantity * UnitPrice;
-
+        
         [JsonIgnore]
         public virtual Order Order { get; set; }
         [JsonIgnore]

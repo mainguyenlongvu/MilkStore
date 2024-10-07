@@ -1,4 +1,5 @@
 ﻿using MilkStore.Contract.Repositories.Entity;
+using MilkStore.Core;
 using MilkStore.ModelViews.OrderModelViews;
 using MilkStore.ModelViews.ProductsModelViews;
 using MilkStore.ModelViews.ResponseDTO;
@@ -12,12 +13,15 @@ namespace MilkStore.Contract.Services.Interface
 {
     public interface IOrderService
     {
-        Task<IEnumerable<OrderResponseDTO>> GetAsync(string? id);
-        Task AddAsync(OrderModelView item);
-        Task UpdateAsync(string id, OrderModelView item);
+        Task<BasePaginatedList<OrderResponseDTO>> GetAsync(string? id, int pageIndex, int pageSize);
+        Task AddAsync(OrderModelView ord);
+        Task UpdateAsync(string id, OrderModelView item, OrderStatus orderStatus, PaymentStatus paymentStatus, PaymentMethod paymentMethod);
         Task AddVoucher(string id, string voucherId);
         Task UpdateToTalAmount(string id);
-        Task DeleteAsync(string id);
-        Task GetStatus_Mail(string? id);
+        Task DeleteAsync(string id);     
+        Task SendingPaymentStatus_Mail(string? id);
+        Task SendingOrderStatus_Mail(string? id);
+        Task UpdateInventoryQuantity(string orderId);
+        Task UpdateUserPoint(string orderId);
     }
 }

@@ -2,7 +2,7 @@
 
 namespace MilkStore.Core.Constants
 {
-    public enum StatusCodeHelper
+    public enum StatusCodes
     {
         [CustomName("Success")]
         OK = 200,

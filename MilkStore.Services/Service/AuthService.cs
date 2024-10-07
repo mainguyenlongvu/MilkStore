@@ -6,98 +6,51 @@ using MilkStore.ModelViews.AuthModelViews;
 using MilkStore.Repositories.Entity;
 using Microsoft.AspNetCore.Identity;
 using MilkStore.Core.Base;
-using MilkStore.Contract.Repositories.Entity;
 using MilkStore.Contract.Repositories.Interface;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
-public class AuthService : IAuthService
+using Microsoft.AspNetCore.Http;
+using MilkStore.Core.Constants;
+using MilkStore.Contract.Repositories.Entity;
+using Microsoft.Extensions.Caching.Memory;
+using Google.Apis.Auth;
+using MilkStore.Contract.Services.Interface;
+using MilkStore.Repositories.UOW;
+namespace MilkStore.Services.Service;
+public class AuthService(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager,
+      IMapper mapper, IHttpContextAccessor httpContextAccessor,
+      RoleManager<ApplicationRole> roleManager, IEmailService emailService, IMemoryCache memoryCache,
+      IUnitOfWork unitOfWork) : IAuthService
 {
-    private readonly UserManager<ApplicationUser> userManager;
-    private readonly SignInManager<ApplicationUser> signInManager;
-    private readonly IUnitOfWork unitOfWork;
-    private readonly IMapper mapper;
-
-    public AuthService(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IUnitOfWork unitOfWork, IMapper mapper)
-    {
-        this.userManager = userManager;
-        this.signInManager = signInManager;
-        this.unitOfWork = unitOfWork;
-        this.mapper = mapper;
-    }
-    public async Task<ApplicationUser> ExistingUser(string email)
-    {
-        ApplicationUser? user = await userManager.FindByEmailAsync(email);
-        if (user != null)
-        {
-            if (user.DeletedTime.HasValue)
-            {
-                throw new BaseException.ErrorException(400, "BadRequest", "Tài khoản đã bị xóa");
-            }
-            if (!await userManager.IsEmailConfirmedAsync(user))
-            {
-                throw new BaseException.ErrorException(400, "BadRequest", "Tài khoản chưa được xác nhận");
-            }
-            return user;
-        }
-        else
-        {
-            throw new BaseException.ErrorException(404, "NotFound", "Không tìm thấy người dùng");
-        }
-    }
-    public async Task<SignInResult> CheckPassword(LoginModelView loginModel)
-    {
-        SignInResult result = await signInManager.PasswordSignInAsync(loginModel.Email, loginModel.Password, false, false);
-        if (!result.Succeeded)
-        {
-            throw new BaseException.ErrorException(401, "Unauthorized", "Không đúng mật khẩu");
-        }
-        return result;
-    }
-
-    public async Task ChangePasswordAdmin(string id, ChangePasswordAdminModel model)
-    {
-        ApplicationUser? admin = await userManager.FindByIdAsync(id);
-        if (admin is null)
-        {
-            throw new BaseException.ErrorException(404, "NotFound", "Không tìm thấy người dùng");
-        }
-        else
-        {
-            if (admin.DeletedTime.HasValue)
-            {
-                throw new BaseException.ErrorException(400, "BadRequest", "Tài khoản đã bị xóa");
-            }
-            else
-            {
-                IdentityResult result = await userManager.ChangePasswordAsync(admin, model.OldPassword, model.NewPassword);
-                if (!result.Succeeded)
-                {
-                    throw new BaseException.ErrorException(500, " InternalServerError", result.Errors.FirstOrDefault()?.Description);
-                }
-            }
-        }
-    }
-    public async Task<ApplicationUser> CheckRefreshToken(string refreshToken)
+    private readonly UserManager<ApplicationUser> userManager = userManager;
+    private readonly SignInManager<ApplicationUser> signInManager = signInManager;
+    private readonly RoleManager<ApplicationRole> roleManager = roleManager;
+    private readonly IUnitOfWork unitOfWork = unitOfWork;
+    private readonly IEmailService emailService = emailService;
+    private readonly IMapper mapper = mapper;
+    private readonly IMemoryCache memoryCache = memoryCache;
+    private readonly IHttpContextAccessor httpContextAccessor = httpContextAccessor;
+    #region Private Service
+    private async Task<ApplicationUser> CheckRefreshToken(string refreshToken)
     {
 
         List<ApplicationUser>? users = await userManager.Users.ToListAsync();
         foreach (ApplicationUser user in users)
         {
-            var storedToken = await userManager.GetAuthenticationTokenAsync(user, "Default", "RefreshToken");
+            string? storedToken = await userManager.GetAuthenticationTokenAsync(user, "Default", "RefreshToken");
 
             if (storedToken == refreshToken)
             {
                 return user;
             }
         }
-        throw new BaseException.ErrorException(401, "Unauthorized", "Mã xác thực không đúng");
+        throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Invalid refresh token.");
     }
-
-    public (string token, IEnumerable<string> roles) GenerateJwtToken(ApplicationUser user)
+    private (string token, IEnumerable<string> roles) GenerateJwtToken(ApplicationUser user)
     {
         byte[] key = Encoding.ASCII.GetBytes(Environment.GetEnvironmentVariable("JWT_KEY") ?? throw new Exception("JWT_KEY is not set"));
         List<Claim> claims = new List<Claim> {
-            new Claim(ClaimTypes.NameIdentifier,user.Id.ToString()),
+            new(ClaimTypes.NameIdentifier,user.Id.ToString()),
             new Claim(ClaimTypes.Email, user.Email)
         };
         IEnumerable<string> roles = userManager.GetRolesAsync(user: user).Result;
@@ -117,44 +70,294 @@ public class AuthService : IAuthService
         SecurityToken token = tokenHandler.CreateToken(tokenDescriptor);
         return (tokenHandler.WriteToken(token), roles);
     }
-    public async Task<string> GenerateRefreshToken(ApplicationUser user)
+    private async Task<string> GenerateRefreshToken(ApplicationUser user)
     {
         string? refreshToken = Guid.NewGuid().ToString();
 
         string? initToken = await userManager.GetAuthenticationTokenAsync(user, "Default", "RefreshToken");
-        if (initToken is not null)
+        if (initToken != null)
         {
+
             await userManager.RemoveAuthenticationTokenAsync(user, "Default", "RefreshToken");
+
         }
+
         await userManager.SetAuthenticationTokenAsync(user, "Default", "RefreshToken", refreshToken);
         return refreshToken;
     }
-
-    public async Task<string> ForgotPassword(string email)
+    private string GenerateOtp()
     {
-        ApplicationUser? user = await userManager.FindByEmailAsync(email) ?? throw new BaseException.BadRequestException("BadRequest", "Vui lòng kiểm tra Email của bạn!");
-        if (!await userManager.IsEmailConfirmedAsync(user))
-        {
-            throw new BaseException.BadRequestException("BadRequest", "Vui lòng kiểm tra Email của bạn!");
-        }
-        string? token = await userManager.GeneratePasswordResetTokenAsync(user);
-        return token;
+        Random random = new Random();
+        string otp = random.Next(100000, 999999).ToString();
+        return otp;
     }
-    public async Task ResetPassword(string email, string password, string token)
+    private async Task<string> AssignMemberToStaffAsync()
     {
-        ApplicationUser? user = await userManager.FindByEmailAsync(email);
-        if (user is null)
+        IList<ApplicationUser>? staffUsers = await userManager.GetUsersInRoleAsync("Staff");
+        if (staffUsers.Any())
         {
-            throw new BaseException.ErrorException(404, "NotFound", "Không tìm thấy người dùng");
+            ApplicationUser? staffWithLeastMembers = null;
+            int leastMembersCount = int.MaxValue;
+            foreach (ApplicationUser staff in staffUsers)
+            {
+                List<ApplicationUser>? members = await unitOfWork.GetRepository<ApplicationUser>().Entities.Where(u => u.ManagerId == staff.Id).ToListAsync();
+                int memberCount = members.Count;
+                if (memberCount < leastMembersCount)
+                {
+                    leastMembersCount = memberCount;
+                    staffWithLeastMembers = staff;
+                }
+            }
+            staffWithLeastMembers ??= staffUsers.First();
+            return staffWithLeastMembers.Id.ToString();
+        }
+        else
+        {
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "No staff found.");
+        }
+
+    }
+    #endregion
+
+
+    #region Implementation Interface
+    public async Task<AuthResponse> Login(LoginModelView loginModel)
+    {
+        ApplicationUser? user = await userManager.FindByEmailAsync(loginModel.Email)
+         ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "User not found.");
+
+        if (user.DeletedTime.HasValue)
+        {
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Account have been deleted");
         }
         if (!await userManager.IsEmailConfirmedAsync(user))
         {
-            throw new BaseException.ErrorException(400, "BadRequest", "Vui lòng kiểm tra Email của bạn!");
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Account have not been confirmed");
         }
-        IdentityResult? result = await userManager.ResetPasswordAsync(user, token, password);
+        SignInResult result = await signInManager.PasswordSignInAsync(loginModel.Email, loginModel.Password, false, false);
         if (!result.Succeeded)
         {
-            throw new BaseException.ErrorException(400, "BadRequest", result.Errors.FirstOrDefault()?.Description);
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Invalid password");
+        }
+        (string token, IEnumerable<string> roles) = GenerateJwtToken(user);
+        string refreshToken = await GenerateRefreshToken(user);
+        return new AuthResponse
+        {
+            AccessToken = token,
+            RefreshToken = refreshToken,
+            TokenType = "JWT",
+            AuthType = "Bearer",
+            ExpiresIn = DateTime.UtcNow.AddHours(1),
+            User = new UserInfo
+            {
+                Email = user.Email,
+                Roles = roles.ToList()
+            }
+        };
+
+    }
+    public async Task Register(RegisterModelView registerModelView)
+    {
+        ApplicationUser? user = await userManager.FindByNameAsync(registerModelView.Email);
+        if (user != null)
+        {
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Email already exists.");
+        }
+        ApplicationUser? newUser = mapper.Map<ApplicationUser>(registerModelView);
+
+        newUser.UserName = registerModelView.Email;
+
+        string ManagerId = await AssignMemberToStaffAsync();
+
+        newUser.ManagerId = Guid.Parse(ManagerId);
+        newUser.Name = registerModelView.Name;
+
+        IdentityResult? result = await userManager.CreateAsync(newUser, registerModelView.Password);
+        if (result.Succeeded)
+        {
+            bool roleExist = await roleManager.RoleExistsAsync("Member");
+            if (!roleExist)
+            {
+                await roleManager.CreateAsync(new ApplicationRole { Name = "Member" });
+            }
+            await userManager.AddToRoleAsync(newUser, "Member");
+            string OTP = GenerateOtp();
+            string cacheKey = $"OTP_{registerModelView.Email}";
+            memoryCache.Set(cacheKey, OTP, TimeSpan.FromMinutes(1));
+
+            await emailService.SendEmailAsync(registerModelView.Email, "Xác nhận tài khoản",
+                       $"Vui lòng xác nhận tài khoản của bạn, OTP của bạn là:  <div class='otp'>{OTP}</div>");
+        }
+        else
+        {
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.ServerError, ErrorCode.ServerError, $"Error when creating user {result.Errors.FirstOrDefault()?.Description}");
         }
     }
+    public async Task VerifyOtp(ConfirmOTPModel model, bool isResetPassword)
+    {
+
+        string cacheKey = isResetPassword ? $"OTPResetPassword_{model.Email}" : $"OTP_{model.Email}";
+        if (memoryCache.TryGetValue(cacheKey, out string storedOtp))
+        {
+            if (storedOtp == model.OTP)
+            {
+
+                ApplicationUser? user = await userManager.FindByEmailAsync(model.Email);
+
+
+                string? token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+                await userManager.ConfirmEmailAsync(user, token);
+
+                memoryCache.Remove(cacheKey);
+            }
+            else
+            {
+                throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "OTP is invalid.");
+            }
+        }
+        else
+        {
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "OTP is invalid or has expired.");
+        }
+    }
+
+    public async Task ResendConfirmationEmail(EmailModelView emailModelView)
+    {
+        string OTP = GenerateOtp();
+        string cacheKey = $"OTP_{emailModelView.Email}";
+        if (memoryCache.TryGetValue(cacheKey, out string cachedValue))
+        {
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "OTP has been sent, please check your email to confirm your account.");
+        }
+        memoryCache.Set(cacheKey, OTP, TimeSpan.FromMinutes(1));
+        await emailService.SendEmailAsync(emailModelView.Email, "Xác nhận tài khoản",
+                   $"Vui lòng xác nhận tài khoản của bạn, OTP của bạn là:  <div class='otp'>{OTP}</div>");
+    }
+    public async Task ChangePassword(ChangePasswordModel model)
+    {
+        string? userId = httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Token is invalid.");
+        ApplicationUser? admin = await userManager.FindByIdAsync(userId) ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "User not found.");
+        if (admin.DeletedTime.HasValue)
+        {
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Accont have been locked.");
+        }
+        else
+        {
+            IdentityResult result = await userManager.ChangePasswordAsync(admin, model.OldPassword, model.NewPassword);
+            if (!result.Succeeded)
+            {
+                throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.ServerError, ErrorCode.ServerError, result.Errors.FirstOrDefault()?.Description);
+            }
+        }
+
+    }
+    public async Task<AuthResponse> RefreshToken(RefreshTokenModel refreshTokenModel)
+    {
+        ApplicationUser? user = await CheckRefreshToken(refreshTokenModel.refreshToken);
+        (string token, IEnumerable<string> roles) = GenerateJwtToken(user);
+        string refreshToken = await GenerateRefreshToken(user);
+        return new AuthResponse
+        {
+            AccessToken = token,
+            RefreshToken = refreshToken,
+            TokenType = "JWT",
+            AuthType = "Bearer",
+            ExpiresIn = DateTime.UtcNow.AddHours(1),
+            User = new UserInfo
+            {
+                Email = user.Email,
+                Roles = roles.ToList()
+            }
+        };
+    }
+
+
+    public async Task ForgotPassword(EmailModelView emailModelView)
+    {
+        ApplicationUser? user = await userManager.FindByEmailAsync(emailModelView.Email)
+         ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Please check your email.");
+        if (!await userManager.IsEmailConfirmedAsync(user))
+        {
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Please check your email.");
+        }
+        string OTP = GenerateOtp();
+        string cacheKey = $"OTPResetPassword_{emailModelView.Email}";
+        memoryCache.Set(cacheKey, OTP, TimeSpan.FromMinutes(1));
+        await emailService.SendEmailAsync(emailModelView.Email, "Đặt lại mật khẩu",
+                   $"Vui lòng xác nhận tài khoản của bạn, OTP của bạn là:  <div class='otp'>{OTP}</div>");
+    }
+    public async Task ResetPassword(ResetPasswordModel resetPasswordModel)
+    {
+        ApplicationUser? user = await userManager.FindByEmailAsync(resetPasswordModel.Email)
+         ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "User not found.");
+        if (!await userManager.IsEmailConfirmedAsync(user))
+        {
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Please check your email.");
+        }
+        string? token = await userManager.GeneratePasswordResetTokenAsync(user);
+        IdentityResult? result = await userManager.ResetPasswordAsync(user, token, resetPasswordModel.Password);
+        if (!result.Succeeded)
+        {
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, result.Errors.FirstOrDefault()?.Description);
+        }
+    }
+
+
+    public async Task<AuthResponse> LoginGoogle(TokenGoogleModel googleModel)
+    {
+        GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(googleModel.token);
+        string email = payload.Email;
+        string providerKey = payload.Subject;
+        ApplicationUser? user = await userManager.FindByEmailAsync(email);
+        if (user is not null)
+        {
+            if (user.DeletedTime.HasValue)
+            {
+                throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Account have been locked");
+            }
+        }
+        else
+        {
+            user = mapper.Map<ApplicationUser>(new { email });
+            user.UserName = email;
+            IdentityResult? result = await userManager.CreateAsync(user);
+            if (result.Succeeded)
+            {
+                string roleName = "Member";
+                bool roleExist = await roleManager.RoleExistsAsync(roleName);
+                if (!roleExist)
+                {
+                    await roleManager.CreateAsync(new ApplicationRole { Name = roleName });
+                }
+                await userManager.AddToRoleAsync(user, roleName);
+                UserLoginInfo? userInfoLogin = new("Google", providerKey, "Google");
+                IdentityResult loginResult = await userManager.AddLoginAsync(user, userInfoLogin);
+                if (!loginResult.Succeeded)
+                {
+                    throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.ServerError, ErrorCode.ServerError, $"Error when created user {loginResult.Errors.FirstOrDefault()?.Description}");
+                }
+            }
+            else
+            {
+                throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.ServerError, ErrorCode.ServerError, $"Error when created user {result.Errors.FirstOrDefault()?.Description}");
+            }
+        }
+        (string token, IEnumerable<string> roles) = GenerateJwtToken(user);
+        string refreshToken = await GenerateRefreshToken(user);
+        return new AuthResponse
+        {
+            AccessToken = token,
+            RefreshToken = refreshToken,
+            TokenType = "JWT",
+            AuthType = "Bearer",
+            ExpiresIn = DateTime.UtcNow.AddHours(1),
+            User = new UserInfo
+            {
+                Email = user.Email,
+                Roles = roles.ToList()
+            }
+        };
+    }
+    #endregion
 }

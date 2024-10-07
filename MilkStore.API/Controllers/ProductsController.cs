@@ -1,13 +1,8 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using MilkStore.Contract.Repositories.Entity;
+﻿using Microsoft.AspNetCore.Mvc;
 using MilkStore.Contract.Services.Interface;
 using MilkStore.Core.Base;
 using MilkStore.ModelViews.ProductsModelViews;
-using MilkStore.ModelViews.UserModelViews;
-using MilkStore.Repositories.Entity;
-using MilkStore.Services.Service;
+using MilkStore.ModelViews.ResponseDTO;
 
 namespace MilkStore.API.Controllers
 {
@@ -20,99 +15,41 @@ namespace MilkStore.API.Controllers
         {
             _ProductsService = ProductsService;
         }
-        [HttpGet]
-        [Authorize(Roles = "Admin,Member")]
-        public async Task<IActionResult> GetProducts(string? id)
+        [HttpGet("GetProduct & Pagging")]
+        //[Authorize(Roles = "Admin,Member")]
+        public async Task<IActionResult> GetProducts(string? id, int pageIndex, int pageSize)
+
         {
-            try
-            {
-                // Lấy tất cả sản phẩm
-                var products = await _ProductsService.GetProducts(id);
-
-                // Kiểm tra xem có sản phẩm nào không
-                if (products == null || !products.Any())
-                {
-                    return NotFound("Sản phẩm không tồn tại!!!");
-                }
-
-                return Ok(products); // Trả về danh sách sản phẩm
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500); // Trả về mã lỗi 500
-            }
+            var result = await _ProductsService.GetProducts(id, pageIndex, pageSize);
+            return Ok(result);
+            
         }
         [HttpGet("GetByName")]
-        public async Task<IActionResult> GetByName(string? name)
+        public async Task<IActionResult> GetByName(string? Productname, string? CategoryName)
         {
-            if (name == null)
-            {
-                return BadRequest("Tìm kiếm rỗng!!!");
-            }
-            else
-            {
-                IEnumerable<ProductsModel> product = await _ProductsService.GetProductsName(name);
-
-                if (product == null || !product.Any())
-                {
-                    return BadRequest("Không tìm thấy sản phẩm!!!");
-                }
-                else
-                {
-                    return Ok(product);
-                }
-            }
-        }
-        [HttpGet("GetPagging")]
-        [Authorize(Roles = "Admin,Member")]
-        public async Task<IActionResult> Paging(int index, int size)
-        {
-            var paging = await _ProductsService.PagingProducts(index, size);
-            return Ok(paging);
+            IEnumerable<ProductResponseDTO> product = await _ProductsService.GetProductsName(Productname, CategoryName);
+            return Ok(product);
         }
         [HttpPost()]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateProducts(ProductsModel ProductsModel)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(new BaseException.BadRequestException("BadRequest", ModelState.ToString()));
-            }
-            Products Products = await _ProductsService.CreateProducts(ProductsModel);
-            return Ok(BaseResponse<Products>.OkResponse(Products));
+            await _ProductsService.CreateProducts(ProductsModel);
+            return Ok(BaseResponse<string>.OkResponse("Added successfully"));
         }
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateProduct(string id, [FromBody] ProductsModel productsModel)
         {
-            if (!ModelState.IsValid)
-            {
-                return NotFound("Sản phẩm không tồn tại!!!");
-            }
-
-            try
-            {
-                var updatedProduct = await _ProductsService.UpdateProducts(id, productsModel);
-                return Ok(updatedProduct);
-            }
-            catch (Exception ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
+            await _ProductsService.UpdateProducts(id, productsModel);
+            return Ok(BaseResponse<string>.OkResponse("Updated successfully"));
         }
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteProduct(string id)
         {
-            try
-            {
-                var deletedProduct = await _ProductsService.DeleteProducts(id);
-                return Ok(deletedProduct); // Trả về sản phẩm đã bị xóa
-            }
-            catch (Exception ex)
-            {
-                return NotFound("Sản phẩm không tồn tại!!!"); // Trả về 404 nếu sản phẩm không tồn tại
-            }
+            await _ProductsService.DeleteProducts(id);
+            return Ok(BaseResponse<string>.OkResponse("Deleted successfully"));
         }
     }
 }

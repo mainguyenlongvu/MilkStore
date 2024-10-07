@@ -2,7 +2,7 @@
 {
     public class ProductResponseDTO
     {
-        public required string ProductID { get; set; }
+        public required string Id { get; set; }
         public required string ProductName { get; set; }
         public required string Description { get; set; }
         public double Price { get; set; }

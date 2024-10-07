@@ -9,7 +9,6 @@ namespace MilkStore.ModelViews.GiftModelViews
 {
     public class GiftModel
     {
-        public string Id { get; set; }
         [Required(ErrorMessage = "Giá sp không được để trống")]
         public required int point { get; set; }
         [Required(ErrorMessage = "Name không được để trống")]

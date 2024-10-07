@@ -13,13 +13,13 @@ namespace MilkStore.Contract.Repositories.Entity
         public string ImageUrl { get; set; }
 
         //Thêm khóa ngoại
-        public  string CategoryId { get; set; }
+        public string CategoryId { get; set; }
         [ForeignKey("CategoryId")]
         public virtual Category Category { get; set; }
 
 
         public virtual ICollection<PostProduct> PostProducts { get; set; } = new List<PostProduct>();
         public virtual ICollection<OrderDetails> OrderDetail { get; set; }
-
+        public virtual ICollection<Gift> Gifts { get; set; }
     }
 }

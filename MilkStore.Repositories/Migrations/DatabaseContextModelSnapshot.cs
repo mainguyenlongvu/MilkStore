@@ -60,7 +60,7 @@ namespace MilkStore.Repositories.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ApplicationRole");
+                    b.ToTable("Roles", (string)null);
                 });
 
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.ApplicationRoleClaims", b =>
@@ -100,7 +100,9 @@ namespace MilkStore.Repositories.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ApplicationRoleClaims");
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("RoleClaims", (string)null);
                 });
 
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.ApplicationUserClaims", b =>
@@ -140,7 +142,9 @@ namespace MilkStore.Repositories.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ApplicationUserClaims");
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserClaims", (string)null);
                 });
 
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.ApplicationUserLogins", b =>
@@ -177,7 +181,7 @@ namespace MilkStore.Repositories.Migrations
 
                     b.HasKey("UserId", "LoginProvider", "ProviderKey");
 
-                    b.ToTable("ApplicationUserLogins");
+                    b.ToTable("UserLogins", (string)null);
                 });
 
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.ApplicationUserRoles", b =>
@@ -208,7 +212,9 @@ namespace MilkStore.Repositories.Migrations
 
                     b.HasKey("UserId", "RoleId");
 
-                    b.ToTable("ApplicationUserRoles");
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("UserRoles", (string)null);
                 });
 
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.ApplicationUserTokens", b =>
@@ -245,7 +251,7 @@ namespace MilkStore.Repositories.Migrations
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("ApplicationUserTokens");
+                    b.ToTable("UserTokens", (string)null);
                 });
 
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.Category", b =>
@@ -340,6 +346,12 @@ namespace MilkStore.Repositories.Migrations
                     b.Property<double>("DiscountedAmount")
                         .HasColumnType("float");
 
+                    b.Property<bool>("IsInventoryUpdated")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPointAdded")
+                        .HasColumnType("bit");
+
                     b.Property<string>("LastUpdatedBy")
                         .HasColumnType("nvarchar(max)");
 
@@ -349,18 +361,19 @@ namespace MilkStore.Repositories.Migrations
                     b.Property<DateTimeOffset>("OrderDate")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("PaymentMethod")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int>("OrderStatuss")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PaymentMethod")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PaymentStatuss")
+                        .HasColumnType("int");
 
                     b.Property<int>("PointsAdded")
                         .HasColumnType("int");
 
                     b.Property<string>("ShippingAddress")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -387,6 +400,47 @@ namespace MilkStore.Repositories.Migrations
                     b.HasIndex("VoucherId");
 
                     b.ToTable("Orders");
+                });
+
+            modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.OrderDetailGift", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("CreatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset?>("DeletedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("GiftId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("LastUpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("LastUpdatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("OrderGiftId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("quantity")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GiftId");
+
+                    b.HasIndex("OrderGiftId");
+
+                    b.ToTable("OrderDetailGifts");
                 });
 
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.OrderDetails", b =>
@@ -433,6 +487,46 @@ namespace MilkStore.Repositories.Migrations
                     b.HasIndex("ProductID");
 
                     b.ToTable("OrderDetails");
+                });
+
+            modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.OrderGift", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("CreatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset?>("DeletedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("LastUpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("LastUpdatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UserID")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserID");
+
+                    b.ToTable("OrderGifts");
                 });
 
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.Post", b =>
@@ -537,9 +631,6 @@ namespace MilkStore.Repositories.Migrations
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<DateTime>("PreoderDate")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("ProductID")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -547,17 +638,17 @@ namespace MilkStore.Repositories.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
 
-                    b.Property<string>("UserID")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid>("UserID")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ProductID");
+
+                    b.HasIndex("UserID");
 
                     b.ToTable("PreOrders");
                 });
@@ -620,7 +711,6 @@ namespace MilkStore.Repositories.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("Comment")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CreatedBy")
@@ -641,20 +731,29 @@ namespace MilkStore.Repositories.Migrations
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("ProductID")
+                    b.Property<string>("OrderDetailID")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("OrderID")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ProductsID")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Rating")
                         .HasColumnType("int");
 
-                    b.Property<string>("UserID")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid>("UserID")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProductID");
+                    b.HasIndex("OrderDetailID");
+
+                    b.HasIndex("UserID");
 
                     b.ToTable("Reviews");
                 });
@@ -758,14 +857,17 @@ namespace MilkStore.Repositories.Migrations
                     b.Property<DateTimeOffset?>("LockoutEnd")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<Guid?>("ManagerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("NormalizedEmail")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("NormalizedUserName")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Password")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PasswordHash")
@@ -791,14 +893,80 @@ namespace MilkStore.Repositories.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ApplicationUser");
+                    b.HasIndex("ManagerId");
+
+                    b.ToTable("Users", (string)null);
+                });
+
+            modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.ApplicationRoleClaims", b =>
+                {
+                    b.HasOne("MilkStore.Contract.Repositories.Entity.ApplicationRole", "Role")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.ApplicationUserClaims", b =>
+                {
+                    b.HasOne("MilkStore.Repositories.Entity.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.ApplicationUserLogins", b =>
+                {
+                    b.HasOne("MilkStore.Repositories.Entity.ApplicationUser", "User")
+                        .WithMany("Logins")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.ApplicationUserRoles", b =>
+                {
+                    b.HasOne("MilkStore.Contract.Repositories.Entity.ApplicationRole", "Role")
+                        .WithMany("UserRoles")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MilkStore.Repositories.Entity.ApplicationUser", "User")
+                        .WithMany("UserRoles")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.ApplicationUserTokens", b =>
+                {
+                    b.HasOne("MilkStore.Repositories.Entity.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.Gift", b =>
                 {
                     b.HasOne("MilkStore.Contract.Repositories.Entity.Products", "Products")
-                        .WithMany()
-                        .HasForeignKey("ProductId");
+                        .WithMany("Gifts")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Products");
                 });
@@ -821,6 +989,23 @@ namespace MilkStore.Repositories.Migrations
                     b.Navigation("Voucher");
                 });
 
+            modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.OrderDetailGift", b =>
+                {
+                    b.HasOne("MilkStore.Contract.Repositories.Entity.Gift", "Gift")
+                        .WithMany("OrderDetailGifts")
+                        .HasForeignKey("GiftId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("MilkStore.Contract.Repositories.Entity.OrderGift", "orderGift")
+                        .WithMany("OGifts")
+                        .HasForeignKey("OrderGiftId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Gift");
+
+                    b.Navigation("orderGift");
+                });
+
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.OrderDetails", b =>
                 {
                     b.HasOne("MilkStore.Contract.Repositories.Entity.Order", "Order")
@@ -838,6 +1023,17 @@ namespace MilkStore.Repositories.Migrations
                     b.Navigation("Order");
 
                     b.Navigation("Products");
+                });
+
+            modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.OrderGift", b =>
+                {
+                    b.HasOne("MilkStore.Repositories.Entity.ApplicationUser", "User")
+                        .WithMany("orderGift")
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.PostProduct", b =>
@@ -867,7 +1063,15 @@ namespace MilkStore.Repositories.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("MilkStore.Repositories.Entity.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("Products");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.Products", b =>
@@ -883,13 +1087,36 @@ namespace MilkStore.Repositories.Migrations
 
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.Review", b =>
                 {
-                    b.HasOne("MilkStore.Contract.Repositories.Entity.Products", "Products")
+                    b.HasOne("MilkStore.Contract.Repositories.Entity.OrderDetails", "OrderDetails")
                         .WithMany()
-                        .HasForeignKey("ProductID")
+                        .HasForeignKey("OrderDetailID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Products");
+                    b.HasOne("MilkStore.Repositories.Entity.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("OrderDetails");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MilkStore.Repositories.Entity.ApplicationUser", b =>
+                {
+                    b.HasOne("MilkStore.Repositories.Entity.ApplicationUser", "Manager")
+                        .WithMany("Members")
+                        .HasForeignKey("ManagerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Manager");
+                });
+
+            modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.ApplicationRole", b =>
+                {
+                    b.Navigation("UserRoles");
                 });
 
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.Category", b =>
@@ -897,9 +1124,19 @@ namespace MilkStore.Repositories.Migrations
                     b.Navigation("Products");
                 });
 
+            modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.Gift", b =>
+                {
+                    b.Navigation("OrderDetailGifts");
+                });
+
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.Order", b =>
                 {
                     b.Navigation("OrderDetailss");
+                });
+
+            modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.OrderGift", b =>
+                {
+                    b.Navigation("OGifts");
                 });
 
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.Post", b =>
@@ -909,6 +1146,8 @@ namespace MilkStore.Repositories.Migrations
 
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.Products", b =>
                 {
+                    b.Navigation("Gifts");
+
                     b.Navigation("OrderDetail");
 
                     b.Navigation("PostProducts");
@@ -921,7 +1160,15 @@ namespace MilkStore.Repositories.Migrations
 
             modelBuilder.Entity("MilkStore.Repositories.Entity.ApplicationUser", b =>
                 {
+                    b.Navigation("Logins");
+
+                    b.Navigation("Members");
+
                     b.Navigation("Orders");
+
+                    b.Navigation("UserRoles");
+
+                    b.Navigation("orderGift");
                 });
 #pragma warning restore 612, 618
         }

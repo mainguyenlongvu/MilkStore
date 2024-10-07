@@ -1,122 +1,59 @@
-﻿using Azure;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MilkStore.Contract.Services.Interface;
-using MilkStore.Core;
 using MilkStore.Core.Base;
 using MilkStore.ModelViews.ResponseDTO;
 using MilkStore.ModelViews.UserModelViews;
-using MilkStore.Repositories.Entity;
-using MilkStore.Services.Service;
-using System.Security.Claims;
+
 namespace MilkStore.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UsersController : ControllerBase
+    public class UsersController(IUserService userService) : ControllerBase
     {
-        private readonly IUserService _userService;
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IUserService _userService = userService;
 
-        public UsersController(IUserService userService, UserManager<ApplicationUser> userManager)
-        {
-            _userService = userService;
-            _userManager = userManager;
-
-        }
-        [HttpGet()]
+        [HttpGet("GetUser")]
+        [Authorize]
         public async Task<IActionResult> GetUsers(string? id, int index = 1, int pageSize = 10)
         {
-            try
-            {
-                IEnumerable<UserResponeseDTO> users = await _userService.GetUser(id, index, pageSize);
-                return Ok(BaseResponse<IEnumerable<UserResponeseDTO>>.OkResponse(users));
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "An error occurred while Get the user", details = ex.Message });
-            }
-        }
-        [HttpPost("add")]
-        //[Authorize(Roles = "Admin")]
-        public async Task<IActionResult> AddUser(UserModelView userModel)
-        {
-            string createdBy = User?.Claims?.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value ?? "System";
-            try
-            {
-                ApplicationUser newUser = await _userService.AddUser(userModel, createdBy);
-                if (newUser is null)
-                {
-                    return BadRequest(new { message = "Failed to create user" });
-                }
-                return Ok(new { message = "Successfully created user" });
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "An error occurred while creating the user.", error = ex.Message });
-            }
+
+            IEnumerable<UserResponeseDTO> users = await _userService.GetUser(id, index, pageSize);
+            return Ok(BaseResponse<IEnumerable<UserResponeseDTO>>.OkResponse(users));
         }
 
-        //[HttpGet()]
-        //public async Task<IActionResult> Login(int index = 1, int pageSize = 10)
-        //{
-        //    // IList<UserResponseModel> a = await _userService.GetAll();
-        //    // return Ok(BaseResponse<IList<UserResponseModel>>.OkResponse(a));
-        //    return Ok("ok");
-        //}
-        [HttpPut("update/{id}")]
+        [HttpPost("Add_User_With_Role_Async")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UserModelView userModel)
+        public async Task<IActionResult> AddUserWithRoleAsync(UserModelView userModel)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-            try
-            {
-                string updatedBy = User.Identity?.Name ?? "System";
-                ApplicationUser updatedUser = await _userService.UpdateUser(id, userModel, updatedBy);
-                return Ok(new { message = "Successfully update user" });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "An error occurred while Update the user", details = ex.Message });
-            }
-
+            await _userService.AddUserWithRoleAsync(userModel);
+            return Ok(BaseResponse<object>.OkResponse("Create user successfully"));
         }
 
-        [HttpDelete("delete/{userId}")]
+        [HttpPut("User_Update")]
+        [Authorize]
+        public async Task<IActionResult> UpdateUser([FromBody] UserUpdateModelView userModel)
+        {
+            await _userService.UpdateUser(userModel);
+            return Ok(BaseResponse<object>.OkResponse("Update user successfully"));
+        }
+
+        [HttpDelete("Delete_One_User")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Delete1User(Guid userId)
+        public async Task<IActionResult> DeleteOneUser([FromQuery] string userId)
         {
 
-            try
-            {
-                string deleteby = User.Identity?.Name ?? "System";
-                ApplicationUser deletedUser = await _userService.DeleteUser(userId, deleteby);
-                return Ok(new { message = "Successfully deleted user" });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "An error occurred while deleting the user", details = ex.Message });
-            }
+            await _userService.DeleteUser(userId);
+            return Ok(BaseResponse<object>.OkResponse("Delete user successfully"));
+        }
+
+
+        [HttpGet("Get_User_Profile")]
+        [Authorize]
+        public async Task<IActionResult> GetUserProfile()
+        {
+            UserProfileResponseModelView? userProfile = await _userService.GetUserProfile();
+            return Ok(BaseResponse<UserProfileResponseModelView>.OkResponse(userProfile));
         }
     }
 }

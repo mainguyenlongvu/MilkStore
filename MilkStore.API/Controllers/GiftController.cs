@@ -6,6 +6,8 @@ using MilkStore.Core.Base;
 using MilkStore.Core;
 using MilkStore.ModelViews.GiftModelViews;
 using Microsoft.AspNetCore.Authorization;
+using MilkStore.Services.Service;
+using System.Drawing.Printing;
 
 namespace MilkStore.API.Controllers
 {
@@ -20,82 +22,46 @@ namespace MilkStore.API.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "Admin,Member")]
-        public async Task<IActionResult> GetGift(string? id)
-        {
-            try
-            {
-                IEnumerable<GiftModel> Gift = await _GiftService.GetGift(id);
-
-                if (Gift == null || !Gift.Any())
-                {
-                    return NotFound("Sản phẩm không tồn tại!!!");
-                }
-
-                return Ok(Gift);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500); // Trả về mã lỗi 500
-            }
-        }
-
-
-
-        [HttpGet("GetPagging")]
         //[Authorize(Roles = "Admin,Member")]
-        public async Task<IActionResult> Paging(int index, int size)
+        public async Task<IActionResult> GetGift(string? id, int PageIndex, int PageSize)
         {
-            BasePaginatedList<Gift> paging = await _GiftService.PagingGift(index, size);
-            return Ok(paging);
+            var result = await _GiftService.GetGift(id, PageIndex, PageSize);
+            return Ok(result);
         }
+
+
+
+        //[HttpGet("GetPagging")]
+        ////[Authorize(Roles = "Admin,Member")]
+        //public async Task<IActionResult> Paging(int index, int size)
+        //{
+        //    BasePaginatedList<Gift> paging = await _GiftService.PagingGift(index, size);
+        //    return Ok(paging);
+        //}
 
         [HttpPost()]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateGift(GiftModel GiftModel)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(new BaseException.BadRequestException("BadRequest", ModelState.ToString()));
-            }
-
-            Gift Gift = await _GiftService.CreateGift(GiftModel);
-            return Ok(BaseResponse<Gift>.OkResponse(Gift));
+            await _GiftService.CreateGift(GiftModel);
+            return Ok(BaseResponse<string>.OkResponse("Added successfully"));
         }
 
         [HttpPut("{id}")]
         //[Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateProduct(string id, [FromBody] GiftModel GiftModel)
         {
-            if (!ModelState.IsValid)
-            {
-                return NotFound("Sản phẩm không tồn tại!!!");
-            }
-
-            try
-            {
-                Gift updatedProduct = await _GiftService.UpdateGift(id, GiftModel);
-                return Ok(updatedProduct);
-            }
-            catch (Exception ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
+            await _GiftService.UpdateGift(id, GiftModel);
+            return Ok(BaseResponse<string>.OkResponse("Updated successfully"));
+            
         }
 
         [HttpDelete("{id}")]
         //[Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteProduct(string id)
         {
-            try
-            {
-                Gift deletedProduct = await _GiftService.DeleteGift(id);
-                return Ok(deletedProduct); // Trả về sản phẩm đã bị xóa
-            }
-            catch (Exception ex)
-            {
-                return NotFound("Sản phẩm không tồn tại!!!"); // Trả về 404 nếu sản phẩm không tồn tại
-            }
+            await _GiftService.DeleteGift(id);
+            return Ok(BaseResponse<string>.OkResponse("Deleted successfully"));
         }
     }
 }

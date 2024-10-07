@@ -1,19 +1,15 @@
-using AutoMapper;
 using dotenv.net;
-using Microsoft.EntityFrameworkCore;
 using MilkStore.API;
-using MilkStore.Contract.Repositories;
-using MilkStore.Contract.Services.Interface;
-using MilkStore.Repositories.Context;
-using MilkStore.Repositories.UOW;
+using MilkStore.API.Middleware;
 using MilkStore.Services.Configs;
-using MilkStore.Services.Service;
+
 
 DotEnv.Load();
 
-var builder = WebApplication.CreateBuilder(args);
+WebApplicationBuilder? builder = WebApplication.CreateBuilder(args);
 
 // config appsettings by env
+builder.Services.AddConfig(builder.Configuration);
 builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
@@ -23,27 +19,37 @@ builder.Configuration
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+        //options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+
     });
 
 
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddConfig(builder.Configuration);
 WebApplication? app = builder.Build();
 
 // Configure the HTTP request pipeline.
+app.UseCors("AllowAllOrigins");
 app.UseSwagger();
 app.UseSwaggerUI();
+
+app.UseMiddleware<ExceptionMiddleware>();
+
 app.UseHttpsRedirection();
+
+
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseCors("AllowAllOrigins");
+
+app.MapHub<ChatHub>("/chathub").RequireAuthorization();
+
+
 app.MapControllers();
 
-// seed data account admin
+//Seed Data
 using (IServiceScope scope = app.Services.CreateScope())
 {
     IServiceProvider? services = scope.ServiceProvider;

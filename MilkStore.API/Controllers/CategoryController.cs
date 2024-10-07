@@ -5,6 +5,8 @@ using MilkStore.Core.Base;
 using MilkStore.ModelViews.CategoryModelViews;
 using MilkStore.Contract.Repositories.Entity;
 using Microsoft.AspNetCore.Authorization;
+using MilkStore.Core;
+using MilkStore.ModelViews.ResponseDTO;
 namespace MilkStore.API.Controllers
 {
     [Route("api/[controller]")]
@@ -17,75 +19,33 @@ namespace MilkStore.API.Controllers
             _CategoryService = CategoryService;
         }
         [HttpGet]
-        [Authorize(Roles = "Admin,Member")]
+        //[Authorize(Roles = "Admin,Member")]
         public async Task<IActionResult> GetCategory(string? id)
         {
-            try
-            {
-                var Category = await _CategoryService.GetCategory(id);
-
-                if (Category == null || !Category.Any())
-                {
-                    return NotFound("Sản phẩm không tồn tại!!!");
-                }
-
-                return Ok(Category); // Trả về danh sách 
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500); // Trả về mã lỗi 500
-            }
-        }
-        [HttpGet("GetPagging")]
-        [Authorize(Roles = "Admin,Member")]
-        public async Task<IActionResult> Paging(int index, int size)
-        {
-            var paging = await _CategoryService.PagingCategory(index, size);
-            return Ok(paging);
+            IEnumerable<CategoryResponseDTO>? Category = await _CategoryService.GetCategory(id);
+            return Ok(Category);
         }
         [HttpPost()]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateCategory(CategoryModel CategoryModel)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(new BaseException.BadRequestException("BadRequest", ModelState.ToString()));
-            }
-            Category Category = await _CategoryService.CreateCategory(CategoryModel);
-            return Ok(BaseResponse<Category>.OkResponse(Category));
+            await _CategoryService.CreateCategory(CategoryModel);
+            return Ok(BaseResponse<string>.OkResponse("Added successfully"));
         }
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateProduct(string id, [FromBody] CategoryModel CategoryModel)
         {
-            if (!ModelState.IsValid)
-            {
-                return NotFound("Sản phẩm không tồn tại!!!");
-            }
-
-            try
-            {
-                var updatedProduct = await _CategoryService.UpdateCategory(id, CategoryModel);
-                return Ok(updatedProduct);
-            }
-            catch (Exception ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
+            await _CategoryService.UpdateCategory(id, CategoryModel);
+            return Ok(BaseResponse<string>.OkResponse("Updated successfully"));
         }
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteProduct(string id)
         {
-            try
-            {
-                var deletedProduct = await _CategoryService.DeleteCategory(id);
-                return Ok(deletedProduct); // Trả về sản phẩm đã bị xóa
-            }
-            catch (Exception ex)
-            {
-                return NotFound("Sản phẩm không tồn tại!!!"); // Trả về 404 nếu sản phẩm không tồn tại
-            }
+            await _CategoryService.DeleteCategory(id);
+            return Ok(BaseResponse<string>.OkResponse("Deleted successfully"));
         }
     }
 }
+
