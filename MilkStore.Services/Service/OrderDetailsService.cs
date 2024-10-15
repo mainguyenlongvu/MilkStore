@@ -13,6 +13,7 @@ using System.Security.Claims;
 using MilkStore.ModelViews.PreOrdersModelView;
 using MilkStore.Core.Constants;
 using PreOrderStatus = MilkStore.ModelViews.PreOrdersModelView.PreOrderStatus;
+using MilkStore.Core;
 
 namespace MilkStore.Services.Service
 {
@@ -32,100 +33,145 @@ namespace MilkStore.Services.Service
             _httpContextAccessor = httpContextAccessor;
             _preOrdersService = preOrdersService;
         }
-        //private OrderDetailResponseDTO MapToOrderDetailResponseDTO(OrderDetails details)
-        //{
-        //    return _mapper.Map<OrderDetailResponseDTO>(details);
-        //}
-
-        // Create OrderDetails
-        public async Task<OrderDetails> CreateOrderDetails(OrderDetailsModelView model)
+        private string GetCurrentUserId()
         {
-            try
+            string? userID = _httpContextAccessor.HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(userID))
             {
-                string? userID = _httpContextAccessor.HttpContext.User?.FindFirst(ClaimTypes.NameIdentifier).Value;
-                if (string.IsNullOrWhiteSpace(userID))
-                {
-                    throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Please log in first!");
-                }
-                // Kiểm tra xem số lượng có hợp lệ không
-                if (model.Quantity <= 0 || model.Quantity % 1 != 0)
-                {
-                    throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Quantity must be greater than 0 and an integer.");
-                }
-
-                // Truy cập trực tiếp để tìm sản phẩm
-                Products product = await _unitOfWork.GetRepository<Products>().Entities
-                    .FirstOrDefaultAsync(p => p.Id == model.ProductID)
-                    ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, $"Product is not found!");
-                //PreOrder
-                if (product.QuantityInStock < model.Quantity)
-                {
-                    PreOrdersModelView preOrdersModelView = new PreOrdersModelView
-                    {
-                        ProductID = model.ProductID,
-                        Quantity = model.Quantity,
-                        Status = PreOrderStatus.Pending,
-                        UserID = Guid.Parse(userID)
-                    };
-                    await _preOrdersService.CreatePreOrders(preOrdersModelView);
-                    throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, $"Product {product.ProductName} does not have sufficient quantity. Please check your email for more information!");
-                }
-                // Kiểm tra xem OrderDetails đã tồn tại hay chưa dựa trên OrderID và ProductID
-                OrderDetails? existingOrderDetail = await _unitOfWork.GetRepository<OrderDetails>().Entities
-                    .FirstOrDefaultAsync(od => od.OrderID == model.OrderID && od.ProductID == model.ProductID && od.DeletedTime == null);
-
-                if (existingOrderDetail != null)
-                {
-                    // Nếu đã tồn tại, cập nhật số lượng và tính lại tổng tiền
-                    existingOrderDetail.Quantity += model.Quantity;
-                    existingOrderDetail.UnitPrice = product.Price;
-                    existingOrderDetail.CreatedBy = userID;                    
-                }
-                else
-                {
-                    // Nếu chưa tồn tại, tạo OrderDetails mới
-                    OrderDetails orderDetails = _mapper.Map<OrderDetails>(model);
-                    orderDetails.UnitPrice = product.Price;
-
-                    // Thêm mới OrderDetails
-                    _unitOfWork.GetRepository<OrderDetails>().InsertAsync(orderDetails);
-                    existingOrderDetail = orderDetails;
-                }
-                await _unitOfWork.SaveAsync();
-
-                // Cập nhật tổng giá trị đơn hàng
-                await _orderService.UpdateToTalAmount(model.OrderID);
-                return existingOrderDetail;
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Please log in first!");
             }
-            catch (Exception ex)
-            {
-                string innerExceptionMessage = ex.InnerException?.Message ?? ex.Message;
-                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, $"An error occurred: {innerExceptionMessage}");
-            }
+            return userID;
+        }
+        private async Task<Products> GetProductByIdAsync(string productId)
+        {
+            return await _unitOfWork.GetRepository<Products>().Entities
+                .FirstOrDefaultAsync(p => p.Id == productId)
+                ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, $"Product is not found!");
         }
 
-        //Read OrderDetails
-        public async Task<IEnumerable<OrderDetails>> ReadOrderDetails(string? id, int page, int pageSize)
+        public async Task<OrderDetails> CreateOrderDetails(OrderDetailsModelView model)
         {
-            if (string.IsNullOrWhiteSpace(id))
+            string userID = GetCurrentUserId();
+            // Kiểm tra xem số lượng có hợp lệ không
+            if (model.Quantity <= 0 || model.Quantity % 1 != 0)
             {
-                IQueryable<OrderDetails> query = _unitOfWork.GetRepository<OrderDetails>().Entities
-                    .Where(detail => detail.DeletedTime == null)
-                    .OrderBy(detail => detail.OrderID);
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Quantity must be greater than 0 and an integer.");
+            }
 
-                var paginated = await _unitOfWork.GetRepository<OrderDetails>()
-                    .GetPagging(query, page, pageSize);
+            // Truy cập trực tiếp để tìm sản phẩm
+            Products product = await GetProductByIdAsync(model.ProductID);
+            //PreOrder
+            if (product.QuantityInStock < model.Quantity)
+            {
+                //PreOrdersModelView preOrdersModelView = new PreOrdersModelView
+                //{
+                //    ProductID = model.ProductID,
+                //    Quantity = model.Quantity,
+                //    Status = PreOrderStatus.Pending,
+                //    UserID = userID
+                //};
+                //await _preOrdersService.CreatePreOrders(preOrdersModelView);
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, $"Product {product.ProductName} does not have sufficient quantity. Please check your email for more information!");
+            }
+            // Kiểm tra xem OrderDetails đã tồn tại hay chưa dựa trên OrderID và ProductID
+            OrderDetails? existingOrderDetail = await _unitOfWork.GetRepository<OrderDetails>().Entities
+                .FirstOrDefaultAsync(od => od.CreatedBy == userID && od.ProductID == model.ProductID && od.DeletedTime == null && od.Status == OrderDetailStatus.InCart);
 
-                return paginated.Items;
+            if (existingOrderDetail != null)
+            {
+                // Nếu đã tồn tại, cập nhật số lượng và tính lại tổng tiền
+                existingOrderDetail.Quantity += model.Quantity;
+                existingOrderDetail.UnitPrice = product.Price;
             }
             else
             {
-                OrderDetails? od = await _unitOfWork.GetRepository<OrderDetails>().Entities
-                    .FirstOrDefaultAsync(or => or.Id == id && or.DeletedTime == null) 
-                    ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, $"Order detail with {id} not found!");
-                
-                return new List<OrderDetails> { od };
+                // Nếu chưa tồn tại, tạo OrderDetails mới
+                OrderDetails orderDetails = _mapper.Map<OrderDetails>(model);
+                orderDetails.UnitPrice = product.Price;
+                orderDetails.CreatedBy = userID;
+                orderDetails.Status = OrderDetailStatus.InCart;
+                orderDetails.CreatedTime = CoreHelper.SystemTimeNow;
+
+                // Thêm mới OrderDetails
+                await _unitOfWork.GetRepository<OrderDetails>().InsertAsync(orderDetails);
+                existingOrderDetail = orderDetails;
             }
+            await _unitOfWork.SaveAsync();
+
+            return existingOrderDetail;
+
+
+        }
+
+
+        public async Task<BasePaginatedList<OrderDetailResponseDTO>> ReadPersonalOrderDetails(string? orderId, OrderDetailStatus? orderDetailStatus, int pageIndex, int pageSize)
+        {
+            string userID = GetCurrentUserId();
+
+            // Lọc dữ liệu cơ bản: không có DeletedTime và CreatedBy
+            IQueryable<OrderDetails>? query = _unitOfWork.GetRepository<OrderDetails>().Entities.AsNoTracking()
+                .Where(od => od.DeletedTime == null && od.CreatedBy == userID);
+
+            // Lọc theo OrderId nếu có
+            if (!string.IsNullOrWhiteSpace(orderId))
+            {
+                query = query.Where(od => od.OrderID == orderId);
+            }
+
+            // Lọc theo OrderDetailStatus nếu có
+            if (orderDetailStatus.HasValue)
+            {
+                query = query.Where(od => od.Status == orderDetailStatus);
+            }
+
+            // Thực hiện phân trang với query hiện tại
+            BasePaginatedList<OrderDetails>? paginatedOrderDetails = await _unitOfWork.GetRepository<OrderDetails>().GetPagging(query, pageIndex, pageSize);
+
+            // Ánh xạ sang OrderDetailResponseDTO
+            List<OrderDetailResponseDTO> odDtosResult = _mapper.Map<List<OrderDetailResponseDTO>>(paginatedOrderDetails.Items);
+            return new BasePaginatedList<OrderDetailResponseDTO>(
+                odDtosResult,
+                paginatedOrderDetails.TotalItems,
+                paginatedOrderDetails.CurrentPage,
+                paginatedOrderDetails.PageSize
+            );
+        }
+
+        public async Task<BasePaginatedList<OrderDetailResponseDTO>> ReadAllOrderDetails(string? orderId, string? userID, OrderDetailStatus? orderDetailStatus, int pageIndex, int pageSize)
+        {
+            // Lọc dữ liệu cơ bản: không có DeletedTime
+            IQueryable<OrderDetails>? query = _unitOfWork.GetRepository<OrderDetails>().Entities.AsNoTracking()
+                .Where(od => od.DeletedTime == null);
+
+            // Lọc theo OrderId nếu có
+            if (!string.IsNullOrWhiteSpace(orderId))
+            {
+                query = query.Where(od => od.OrderID == orderId);
+            }
+
+            // Lọc theo UserID nếu có
+            if (!string.IsNullOrWhiteSpace(userID))
+            {
+                query = query.Where(od => od.CreatedBy == userID);
+            }
+
+            // Lọc theo OrderDetailStatus nếu có
+            if (orderDetailStatus.HasValue)
+            {
+                query = query.Where(od => od.Status == orderDetailStatus);
+            }
+
+            // Thực hiện phân trang với query hiện tại
+            BasePaginatedList<OrderDetails>? paginatedOrderDetails = await _unitOfWork.GetRepository<OrderDetails>().GetPagging(query, pageIndex, pageSize);
+
+            // Ánh xạ sang OrderDetailResponseDTO
+            List<OrderDetailResponseDTO> odDtosResult = _mapper.Map<List<OrderDetailResponseDTO>>(paginatedOrderDetails.Items);
+            return new BasePaginatedList<OrderDetailResponseDTO>(
+                odDtosResult,
+                paginatedOrderDetails.TotalItems,
+                paginatedOrderDetails.CurrentPage,
+                paginatedOrderDetails.PageSize
+            );
         }
 
         // Update OrderDetails
@@ -134,25 +180,24 @@ namespace MilkStore.Services.Service
             // Kiểm tra số lượng từ model
             if (model.Quantity <= 0 || model.Quantity % 1 != 0)
             {
-                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Quantity must be greater than 0 and an integer.");
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Số lượng phải lớn hơn 0 và là một số nguyên.");
             }
 
             //OrderDetails orderDetails = await _unitOfWork.GetRepository<OrderDetails>().GetAllAsync()
             //    .ContinueWith(task => task.Result.FirstOrDefault(od => od.OrderID == orderId && od.ProductID == productId));
             OrderDetails? orderDetails = await _unitOfWork.GetRepository<OrderDetails>().GetByIdAsync(id)
-                ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, $"Order detail with {id} not found!");
+                ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, $"Không tìm thấy Chi tiết đơn hàng có ID: {id} !");
 
             string productID = orderDetails.ProductID;
-            Products? product = await _unitOfWork.GetRepository<Products>().GetByIdAsync(productID)
-                ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, $"Product with {productID} not found!");
-            
+            Products product = await GetProductByIdAsync(model.ProductID);
             orderDetails.Quantity = model.Quantity;
             orderDetails.UnitPrice = product.Price;
 
             await _unitOfWork.GetRepository<OrderDetails>().UpdateAsync(orderDetails);
-            await _unitOfWork.SaveAsync();
+            // Cập nhật tổng tiền cho đơn hàng
+            await UpdateOrderTotal(orderDetails.OrderID);
 
-            await _orderService.UpdateToTalAmount(orderDetails.OrderID);
+            await _unitOfWork.SaveAsync();
             return orderDetails;
         }
 
@@ -161,13 +206,28 @@ namespace MilkStore.Services.Service
         {
             //OrderDetails od = await _unitOfWork.GetRepository<OrderDetails>().GetAllAsync()
             //    .ContinueWith(task => task.Result.FirstOrDefault(od => od.OrderID == orderId && od.ProductID == productId));
-            OrderDetails? od = await _unitOfWork.GetRepository<OrderDetails>().GetByIdAsync(id)
-                ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, $"Order detail with {id} not found!");
+            OrderDetails od = await _unitOfWork.GetRepository<OrderDetails>().GetByIdAsync(id)
+                ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, $"Không tìm thấy Chi tiết đơn hàng có ID: {id} !");
 
             od.DeletedTime = CoreHelper.SystemTimeNow;
             await _unitOfWork.GetRepository<OrderDetails>().UpdateAsync(od);
+            await UpdateOrderTotal(od.OrderID);
             await _unitOfWork.SaveAsync();
-            await _orderService.UpdateToTalAmount(od.OrderID);
+        }
+        private async Task UpdateOrderTotal(string orderId)
+        {
+            var order = await _unitOfWork.GetRepository<Order>().GetByIdAsync(orderId)
+                ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Order with ID {orderId} not found.");
+
+            // Tính tổng tiền mới
+            var orderDetails = await _unitOfWork.GetRepository<OrderDetails>().Entities
+                .Where(od => od.OrderID == orderId && od.DeletedTime == null)
+                .ToListAsync();
+
+            order.TotalAmount = orderDetails.Sum(od => od.Quantity * od.UnitPrice);
+
+            // Cập nhật đơn hàng với tổng tiền mới
+            await _unitOfWork.GetRepository<Order>().UpdateAsync(order);
         }
     }
 }

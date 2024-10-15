@@ -128,7 +128,7 @@ namespace MilkStore.API
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IStatisticalService, StatisticalService>();
             services.AddScoped<IStatisticalProductService, StatisticalProductService>();
-
+            services.AddScoped<ITransactionService, TransactionService>();
             services.AddHttpContextAccessor();
         }
 

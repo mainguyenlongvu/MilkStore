@@ -12,11 +12,9 @@ namespace MilkStore.Contract.Repositories.Entity
     public class OrderDetailGift : BaseEntity
     {
         public string? OrderGiftId { get; set; }
-
+        public float ? Shipfee { get; set; }
         public string? GiftId { get; set; }
-
         public int quantity { get; set; }
-
         public virtual OrderGift orderGift { get; set; }
         public virtual Gift Gift { get; set; }
     }

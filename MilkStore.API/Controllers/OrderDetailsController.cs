@@ -4,6 +4,9 @@ using MilkStore.ModelViews.OrderDetailsModelView;
 using MilkStore.Contract.Services.Interface;
 using MilkStore.Core.Base;
 using Microsoft.AspNetCore.Authorization;
+using MilkStore.ModelViews.ResponseDTO;
+using MilkStore.Services.Service;
+using MilkStore.Core;
 
 namespace MilkStore.API.Controllers
 {
@@ -18,18 +21,25 @@ namespace MilkStore.API.Controllers
         }
 
         // GET
-        [HttpGet]
-        public async Task<IActionResult> GetOrderDetails(string? orderId, int page = 1, int pageSize = 10)
+        [HttpGet("Get_personal_order_detail")]
+        public async Task<IActionResult> GetOrderDetails(string? orderId, OrderDetailStatus? orderDetailStatus, int page = 1, int pageSize = 10)
         {
-            IList<OrderDetails> detail = (IList<OrderDetails>)await _orderDetailsService.ReadOrderDetails(orderId, page, pageSize);
-            return Ok(BaseResponse<IList<OrderDetails>>.OkResponse(detail));
+            BasePaginatedList<OrderDetailResponseDTO> detail = await _orderDetailsService.ReadPersonalOrderDetails(orderId, orderDetailStatus, page, pageSize);
+            return Ok(BaseResponse<BasePaginatedList<OrderDetailResponseDTO>>.OkResponse(detail));
         }
-
+        //[Authorize(Roles = "Admin")]
+        // GET ALL
+        [HttpGet("Get_all_order_detail")]
+        public async Task<IActionResult> GetAllOrderDetails(string? orderId, string? userID, OrderDetailStatus? orderDetailStatus, int page = 1, int pageSize = 10)
+        {
+            BasePaginatedList<OrderDetailResponseDTO> detail = await _orderDetailsService.ReadAllOrderDetails(orderId, userID, orderDetailStatus, page, pageSize);
+            return Ok(BaseResponse<BasePaginatedList<OrderDetailResponseDTO>>.OkResponse(detail));
+        }
         // POST
         //[Authorize(Roles = "Guest, Member")]
-        [HttpPost]
+        [HttpPost("Add_to_cart")]
         public async Task<IActionResult> CreateOrderDetails(OrderDetailsModelView model)
-        {           
+        {
             await _orderDetailsService.CreateOrderDetails(model);
             return Ok(BaseResponse<string>.OkResponse("Order detail added successfully!"));
         }

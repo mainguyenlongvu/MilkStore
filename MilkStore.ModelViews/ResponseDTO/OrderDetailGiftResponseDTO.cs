@@ -12,6 +12,7 @@ namespace MilkStore.ModelViews.ResponseDTO
         public string? OrderGiftId { get; set; }
         public string? GiftId { get; set; }
         public int quantity { get; set; }
+        public float ShipFee { get; set; }
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
         public required string CreatedBy { get; set; }
         public DateTimeOffset LastUpdatedAt { get; set; } = DateTimeOffset.Now;

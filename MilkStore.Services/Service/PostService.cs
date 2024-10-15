@@ -87,7 +87,7 @@ namespace MilkStore.Services.Service
 
         public async Task<BasePaginatedList<PostResponseDTO>> GetPosts(string? id, string? name, int pageIndex, int pageSize)
         {
-            IQueryable<Post>? query = _unitOfWork.GetRepository<Post>().Entities.Where(post => post.DeletedTime == null);
+            IQueryable<Post>? query = _unitOfWork.GetRepository<Post>().Entities.AsNoTracking().Where(post => post.DeletedTime == null);
             if (!string.IsNullOrWhiteSpace(id))
             {
                 query = query.Where(post => post.Id == id);

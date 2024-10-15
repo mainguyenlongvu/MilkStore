@@ -17,8 +17,10 @@ namespace MilkStore.ModelViews.VoucherModelViews
         public DateTime ExpiryDate { get; set; }
         public int UsingLimit { get; set; }
         public int UsedCount { get; set; }
-        public int Status { get; set; }  
+        public int Status { get; set; }
+        [Required(ErrorMessage = "Không được để trống")]
         public string Name { get; set; }
         public DateTime? DeletedTime { get; set; } = null;
+        public string Code { get; set; } = string.Empty;
     }
 }

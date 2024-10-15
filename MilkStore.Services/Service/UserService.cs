@@ -1,5 +1,4 @@
 ﻿using System.Security.Claims;
-using System.Security.Policy;
 using System.Text.RegularExpressions;
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
@@ -24,6 +23,7 @@ namespace MilkStore.Services.Service
     {
         private readonly IUnitOfWork _unitOfWork = unitOfWork;
         private readonly IEmailService emailService = emailService;
+        private readonly IUnitOfWork unitOfWork = unitOfWork;
         private readonly UserManager<ApplicationUser> userManager = userManager;
         private readonly RoleManager<ApplicationRole> roleManager = roleManager;
         private readonly SignInManager<ApplicationUser> signInManager = signInManager;
@@ -34,13 +34,14 @@ namespace MilkStore.Services.Service
         public async Task UpdateUser(UserUpdateModelView userUpdateModelView)
         {
             string? userID = httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                         ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Token is invalid.");
+                         ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Token không hợp lệ");
             ApplicationUser? user = await userManager.FindByIdAsync(userID)
-              ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, "NotFound", $"User with ID {userID} was not found.");
+              ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, "NotFound", $"Người dùng với id {userID} không tồn tại");
 
-            _mapper.Map<ApplicationUser>(userUpdateModelView);
+            _mapper.Map(userUpdateModelView, user);
             user.LastUpdatedTime = CoreHelper.SystemTimeNow;
             user.LastUpdatedBy = userID;
+            user.UserName = userUpdateModelView.Email;
 
             await _unitOfWork.GetRepository<ApplicationUser>().UpdateAsync(user);
             await _unitOfWork.SaveAsync();
@@ -51,60 +52,16 @@ namespace MilkStore.Services.Service
         {
             if (string.IsNullOrWhiteSpace(userId))
             {
-                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "User ID cannot be null, empty, or contain only whitespace.");
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "User ID không được để trống, trống hoặc chỉ chứa các ký tự không hợp lệ");
             }
             string? handleBy = httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-             ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Token is invalid.");
+             ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Token không hợp lệ");
             ApplicationUser? userExists = await userManager.FindByIdAsync(userId)
-             ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "User does not exist or has already been deleted.");
+             ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Người dùng không tồn tại hoặc đã bị xóa");
             userExists.DeletedTime = CoreHelper.SystemTimeNow;
             userExists.DeletedBy = handleBy;
             await _unitOfWork.GetRepository<ApplicationUser>().UpdateAsync(userExists);
             await _unitOfWork.SaveAsync();
-        }
-
-        // Lấy thông tin người dùng theo ID
-        public async Task<IEnumerable<UserResponeseDTO>> GetUser(string? id, int index = 1, int pageSize = 10)
-        {
-            if (string.IsNullOrWhiteSpace(id))
-            {
-                IQueryable<ApplicationUser> usersQuery = _unitOfWork.GetRepository<ApplicationUser>().Entities
-                    .Where(u => u.DeletedTime == null);
-
-                BasePaginatedList<ApplicationUser>? paginatedUsers = await _unitOfWork.GetRepository<ApplicationUser>().GetPagging(usersQuery, index, pageSize);
-
-                List<UserResponeseDTO> userResponseDtos = paginatedUsers.Items
-                    .Select(MapToUserResponseDto)
-                    .ToList();
-
-                return userResponseDtos;
-            }
-            else
-            {
-                ApplicationUser user = await _unitOfWork.GetRepository<ApplicationUser>().Entities
-                    .FirstOrDefaultAsync(u => u.Id.ToString() == id && u.DeletedTime == null)
-                    ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"User with ID {id} was not found.");
-
-                return new List<UserResponeseDTO> { MapToUserResponseDto(user) };
-            }
-        }
-
-
-        private UserResponeseDTO MapToUserResponseDto(ApplicationUser user)
-        {
-            return new UserResponeseDTO
-            {
-                Id = user.Id,
-                UserName = user.UserName,
-                Email = user.Email,
-                Name = user.Name,
-                Points = user.Points,
-                CreatedBy = user.CreatedBy,
-                DeletedBy = user.DeletedBy,
-                LastUpdatedTime = user.LastUpdatedTime,
-                CreatedTime = user.CreatedTime,
-
-            };
         }
         private readonly Random random = new Random();
 
@@ -156,12 +113,12 @@ namespace MilkStore.Services.Service
         public async Task AddUserWithRoleAsync(UserModelView userModel)
         {
             string? handleBy = httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-             ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Token is invalid.");
+             ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Token không hợp lệ");
 
             ApplicationUser? userExists = await userManager.FindByEmailAsync(userModel.Email);
             if (userExists != null)
             {
-                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Email already exists");
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Email đã tồn tại");
             }
             ApplicationUser? newUser = _mapper.Map<ApplicationUser>(userModel);
             newUser.CreatedBy = handleBy;
@@ -185,7 +142,7 @@ namespace MilkStore.Services.Service
 
         }
 
-        public async Task AccumulatePoints(string userId, double totalAmount)
+        public async Task AccumulatePoints(string userId, double totalAmount, OrderStatus orderStatus)
         {
             // Kiểm tra nếu totalAmount <= 0 thì không cần cộng điểm
             if (totalAmount <= 0)
@@ -194,13 +151,18 @@ namespace MilkStore.Services.Service
             }
 
             ApplicationUser user = await userManager.FindByIdAsync(userId)
-             ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, "NotFound", "User not found");
+             ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, "NotFound", "Không tìm thấy người dùng");
 
             // Tính điểm thưởng: 10 điểm cho mỗi 10.000 VND
-            int earnedPoints = (int)(totalAmount / 10000) * 10;
-
-            user.Points += earnedPoints;
-
+            int Points = (int)(totalAmount / 10000) * 10;
+            if(user.Points > 0 && orderStatus == OrderStatus.Refunded)
+            {
+                user.Points -= Points;
+            }
+            else
+            {
+                user.Points += Points;
+            }
             await _unitOfWork.GetRepository<ApplicationUser>().UpdateAsync(user);
             await _unitOfWork.SaveAsync();
         }
@@ -209,15 +171,179 @@ namespace MilkStore.Services.Service
         public async Task<UserProfileResponseModelView> GetUserProfile()
         {
             string? userIdToken = httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-             ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Token is invalid.");
+             ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Token không hợp lệ");
 
             ApplicationUser? user = await userManager.FindByIdAsync(userIdToken)
-             ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "User not found.");
+             ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Không tìm thấy người dùng");
 
             UserProfileResponseModelView? userResponse = _mapper.Map<UserProfileResponseModelView>(user);
 
             return userResponse;
+        }
 
+
+        public async Task UpdateUserByAdmin(string userID, UserUpdateByAdminModel model)
+        {
+            if (string.IsNullOrWhiteSpace(userID))
+            {
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "User ID không được để trống, trống hoặc chỉ chứa các ký tự không hợp lệ");
+            }
+
+            string? handleBy = httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+             ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Token không hợp lệ");
+            ApplicationUser? userExists = await userManager.FindByIdAsync(userID)
+             ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Người dùng không tồn tại hoặc đã bị xóa");
+
+            _mapper.Map(model, userExists);
+
+            userExists.UserName = model.Email;
+            userExists.LastUpdatedBy = handleBy;
+
+            if (!string.IsNullOrEmpty(model.Password))
+            {
+                string? passwordResetToken = await userManager.GeneratePasswordResetTokenAsync(userExists);
+                IdentityResult? result = await userManager.ResetPasswordAsync(userExists, passwordResetToken, model.Password);
+                if (!result.Succeeded)
+                {
+                    throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Không thể cập nhật mật khẩu");
+                }
+            }
+
+            IdentityResult? updateResult = await userManager.UpdateAsync(userExists);
+            if (!updateResult.Succeeded)
+            {
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Không thể cập nhật người dùng");
+            }
+        }
+        private IQueryable<ApplicationUser> FilterUsers(
+            IQueryable<ApplicationUser> query,
+            string? name,
+            string? phone,
+            string? email,
+            string? role)
+        {
+            if (!string.IsNullOrEmpty(name))
+            {
+                query = query.Where(u => u.Name.Contains(name));
+            }
+
+            if (!string.IsNullOrEmpty(phone))
+            {
+                query = query.Where(u => u.PhoneNumber.Contains(phone));
+            }
+
+            if (!string.IsNullOrEmpty(email))
+            {
+                query = query.Where(u => u.Email.Contains(email));
+            }
+
+            if (!string.IsNullOrEmpty(role))
+            {
+                IList<ApplicationUser>? usersInRole = userManager.GetUsersInRoleAsync(role).Result;
+                query = query.Where(u => usersInRole.Contains(u));
+            }
+
+            return query;
+        }
+        private IQueryable<ApplicationUser> SortUsers(IQueryable<ApplicationUser> query,
+            SortBy sortBy,
+            SortOrder sortOrder)
+        {
+
+            switch (sortBy)
+            {
+                case SortBy.Name:
+                    query = sortOrder == SortOrder.asc
+                        ? query.OrderBy(u => u.Name)
+                        : query.OrderByDescending(u => u.Name);
+                    break;
+
+                case SortBy.Email:
+                    query = sortOrder == SortOrder.asc
+                        ? query.OrderBy(u => u.Email)
+                        : query.OrderByDescending(u => u.Email);
+                    break;
+
+                case SortBy.PhoneNumber:
+                    query = sortOrder == SortOrder.asc
+                        ? query.OrderBy(u => u.PhoneNumber)
+                        : query.OrderByDescending(u => u.PhoneNumber);
+                    break;
+
+                case SortBy.RoleName:
+                    query = sortOrder == SortOrder.asc
+                        ? query.OrderBy(u => u.UserRoles.FirstOrDefault().Role.Name)
+                        : query.OrderByDescending(u => u.UserRoles.FirstOrDefault().Role.Name);
+                    break;
+
+                case SortBy.CreatedDate:
+                    query = sortOrder == SortOrder.asc
+                        ? query.OrderBy(u => u.CreatedTime)
+                        : query.OrderByDescending(u => u.CreatedTime);
+                    break;
+
+                default:
+                    break;
+            }
+
+
+            return query;
+        }
+        private async Task<BasePaginatedList<UserResponseDTO>> PaginateUsers(
+        IQueryable<ApplicationUser> query,
+        int? page,
+        int? pageSize)
+        {
+            int currentPage = page ?? 1;
+            int currentPageSize = pageSize ?? 10;
+            int totalItems = await query.CountAsync();
+
+            List<UserResponseDTO>? users = await query
+                .Skip((currentPage - 1) * currentPageSize)
+                .Take(currentPageSize)
+                .Select(u => new UserResponseDTO
+                {
+                    Id = u.Id,
+                    Name = u.Name,
+                    Email = u.Email,
+                    PhoneNumber = u.PhoneNumber,
+                    RoleName = u.UserRoles.FirstOrDefault().Role.Name,
+                    CreatedBy = u.CreatedBy,
+                    LastUpdatedBy = u.LastUpdatedBy,
+                    DeletedBy = u.DeletedBy,
+                    CreatedTime = u.CreatedTime,
+                    LastUpdatedTime = u.LastUpdatedTime,
+                    DeletedTime = u.DeletedTime
+                })
+                .ToListAsync();
+
+            return new BasePaginatedList<UserResponseDTO>(users, totalItems, currentPage, currentPageSize);
+        }
+
+
+        public async Task<BasePaginatedList<UserResponseDTO>> GetAsync(
+            int? page,
+            int? pageSize,
+            string? name,
+            string? phone,
+            string? email,
+            SortBy sortBy,
+            SortOrder sortOrder,
+            string? role,
+            string? id
+            )
+        {
+            IQueryable<ApplicationUser>? query = userManager.Users.AsQueryable();
+            query = query.Where(u => u.DeletedTime == null);
+            if (!string.IsNullOrEmpty(id))
+            {
+                query = query.Where(u => u.Id == Guid.Parse(id));
+            }
+
+            query = FilterUsers(query, name, phone, email, role);
+            query = SortUsers(query, sortBy, sortOrder);
+
+            return await PaginateUsers(query, page, pageSize);
         }
 
     }

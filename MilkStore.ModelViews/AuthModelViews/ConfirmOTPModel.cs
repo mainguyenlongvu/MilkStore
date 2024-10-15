@@ -2,13 +2,13 @@ using System.ComponentModel.DataAnnotations;
 namespace MilkStore.ModelViews.AuthModelViews;
 public class ConfirmOTPModel
 {
-    [Required(ErrorMessage = "Email is required")]
-    [EmailAddress(ErrorMessage = "Email is invalid")]
+    [Required(ErrorMessage = "Email bắt buộc")]
+    [EmailAddress(ErrorMessage = "Email không hợp lệ")]
     public string Email { get; set; }
-    [Required(ErrorMessage = "OTP is required")]
-    [MaxLength(6, ErrorMessage = "OTP is invalid")]
-    [MinLength(0, ErrorMessage = "OTP is invalid")]
-    [StringLength(6, ErrorMessage = "OTP is invalid")]
-    [RegularExpression(@"^\d{6}$", ErrorMessage = "OTP is invalid")]
+    [Required(ErrorMessage = "OTP bắt buộc")]
+    [MaxLength(6, ErrorMessage = "OTP không hợp lệ")]
+    [MinLength(0, ErrorMessage = "OTP không hợp lệ")]
+    [StringLength(6, ErrorMessage = "OTP không hợp lệ")]
+    [RegularExpression(@"^\d{6}$", ErrorMessage = "OTP không hợp lệ")]
     public string OTP { get; set; }
 }

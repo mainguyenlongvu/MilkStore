@@ -21,7 +21,7 @@ namespace MilkStore.Contract.Repositories.Entity
         public required Guid UserID { get; set; }
         public string ProductID { get; set; }        
         public PreOrderStatus Status { get; set; }
-        public int Quantity { get; set; }
+
         [ForeignKey("ProductID")]
         public virtual Products Products { get; set; }
         public virtual ApplicationUser User { get; set; } // Một đơn hàng thuộc về một người dùng

@@ -17,19 +17,17 @@ namespace MilkStore.API.Controllers
         }
         [HttpGet("GetProduct & Pagging")]
         //[Authorize(Roles = "Admin,Member")]
-        public async Task<IActionResult> GetProducts(string? id, int pageIndex, int pageSize)
-
+        public async Task<IActionResult> GetProducts(string? id, int pageIndex, int pageSize, string? productname, string? categoryname)
         {
-            var result = await _ProductsService.GetProducts(id, pageIndex, pageSize);
+            var result = await _ProductsService.GetProductByNameId(id, pageIndex, pageSize, productname, categoryname);
             return Ok(result);
-            
         }
-        [HttpGet("GetByName")]
-        public async Task<IActionResult> GetByName(string? Productname, string? CategoryName)
-        {
-            IEnumerable<ProductResponseDTO> product = await _ProductsService.GetProductsName(Productname, CategoryName);
-            return Ok(product);
-        }
+        //[HttpGet("GetByName")]
+        //public async Task<IActionResult> GetByName(string? Productname, string? CategoryName)
+        //{
+        //    var product = await _ProductsService.GetProductsName(Productname, CategoryName);
+        //    return Ok(product);
+        //}
         [HttpPost()]
         //[Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateProducts(ProductsModel ProductsModel)

@@ -12,8 +12,9 @@ namespace MilkStore.Contract.Services.Interface
 {
     public interface IOrderGiftService
     {
+        Task CreateOrderGiftAuto(OrderGiftModel orderGiftModel);
         Task<IEnumerable<OrderGiftResponseDTO>> GetOrderGift(string? id);
-        Task CreateOrderGift(OrderGiftModel orderGiftModel);
+        Task CreateOrderGiftInputUser(string mail, OrderGiftModel orderGiftModel);
         Task UpdateOrderGift(string id, OrderGiftModel orderGiftModel, OrderGiftStatus ordergiftstatus);
         Task DeleteOrderGift(string id);
     }

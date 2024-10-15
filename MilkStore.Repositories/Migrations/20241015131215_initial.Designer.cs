@@ -12,8 +12,8 @@ using MilkStore.Repositories.Context;
 namespace MilkStore.Repositories.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    [Migration("20241007084254_InitDB")]
-    partial class InitDB
+    [Migration("20241015131215_initial")]
+    partial class initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -386,8 +386,8 @@ namespace MilkStore.Repositories.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("VoucherId")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<string>("VoucherCode")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTimeOffset?>("deliveryDate")
                         .HasColumnType("datetimeoffset");
@@ -399,8 +399,6 @@ namespace MilkStore.Repositories.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("UserId");
-
-                    b.HasIndex("VoucherId");
 
                     b.ToTable("Orders");
                 });
@@ -433,6 +431,9 @@ namespace MilkStore.Repositories.Migrations
 
                     b.Property<string>("OrderGiftId")
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<float?>("Shipfee")
+                        .HasColumnType("real");
 
                     b.Property<int>("quantity")
                         .HasColumnType("int");
@@ -470,14 +471,15 @@ namespace MilkStore.Repositories.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("OrderID")
-                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ProductID")
-                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
                         .HasColumnType("int");
 
                     b.Property<double>("UnitPrice")
@@ -637,9 +639,6 @@ namespace MilkStore.Repositories.Migrations
                     b.Property<string>("ProductID")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
-
-                    b.Property<int>("Quantity")
-                        .HasColumnType("int");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -813,6 +812,11 @@ namespace MilkStore.Repositories.Migrations
                     b.Property<int>("UsingLimit")
                         .HasColumnType("int");
 
+                    b.Property<string>("VoucherCode")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .HasColumnType("nvarchar(6)");
+
                     b.HasKey("Id");
 
                     b.ToTable("Vouchers");
@@ -886,6 +890,9 @@ namespace MilkStore.Repositories.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("SecurityStamp")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ShippingAddress")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("TwoFactorEnabled")
@@ -982,14 +989,7 @@ namespace MilkStore.Repositories.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("MilkStore.Contract.Repositories.Entity.Voucher", "Voucher")
-                        .WithMany("Orders")
-                        .HasForeignKey("VoucherId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.Navigation("User");
-
-                    b.Navigation("Voucher");
                 });
 
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.OrderDetailGift", b =>
@@ -1014,14 +1014,12 @@ namespace MilkStore.Repositories.Migrations
                     b.HasOne("MilkStore.Contract.Repositories.Entity.Order", "Order")
                         .WithMany("OrderDetailss")
                         .HasForeignKey("OrderID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("MilkStore.Contract.Repositories.Entity.Products", "Products")
                         .WithMany("OrderDetail")
                         .HasForeignKey("ProductID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Order");
 
@@ -1154,11 +1152,6 @@ namespace MilkStore.Repositories.Migrations
                     b.Navigation("OrderDetail");
 
                     b.Navigation("PostProducts");
-                });
-
-            modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.Voucher", b =>
-                {
-                    b.Navigation("Orders");
                 });
 
             modelBuilder.Entity("MilkStore.Repositories.Entity.ApplicationUser", b =>

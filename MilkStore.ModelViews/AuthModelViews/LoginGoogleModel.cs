@@ -4,8 +4,8 @@ using System.ComponentModel.DataAnnotations;
 namespace MilkStore.ModelViews.AuthModelViews;
 public class LoginGoogleModel
 {
-    [Required(ErrorMessage = "Gmail is required")]
-    [EmailAddress(ErrorMessage = "Gmail is invalid")]
-    public string Gmail { get; set; }
+    [Required(ErrorMessage = "Email bắt buộc")]
+    [EmailAddress(ErrorMessage = "Email không hợp lệ")]
+    public string Email { get; set; }
     public string ProviderKey { get; set; }
 }

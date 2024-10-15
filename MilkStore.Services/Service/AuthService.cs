@@ -15,7 +15,6 @@ using MilkStore.Contract.Repositories.Entity;
 using Microsoft.Extensions.Caching.Memory;
 using Google.Apis.Auth;
 using MilkStore.Contract.Services.Interface;
-using MilkStore.Repositories.UOW;
 namespace MilkStore.Services.Service;
 public class AuthService(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager,
       IMapper mapper, IHttpContextAccessor httpContextAccessor,
@@ -44,7 +43,7 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
                 return user;
             }
         }
-        throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Invalid refresh token.");
+        throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Token không hợp lệ");
     }
     private (string token, IEnumerable<string> roles) GenerateJwtToken(ApplicationUser user)
     {
@@ -113,7 +112,7 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
         }
         else
         {
-            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "No staff found.");
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Không tìm thấy staff");
         }
 
     }
@@ -124,20 +123,20 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
     public async Task<AuthResponse> Login(LoginModelView loginModel)
     {
         ApplicationUser? user = await userManager.FindByEmailAsync(loginModel.Email)
-         ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "User not found.");
+         ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Không tìm thấy user");
 
         if (user.DeletedTime.HasValue)
         {
-            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Account have been deleted");
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Tài khoản đã bị xóa");
         }
         if (!await userManager.IsEmailConfirmedAsync(user))
         {
-            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Account have not been confirmed");
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Tài khoản chưa được xác nhận");
         }
         SignInResult result = await signInManager.PasswordSignInAsync(loginModel.Email, loginModel.Password, false, false);
         if (!result.Succeeded)
         {
-            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Invalid password");
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Mật khẩu không đúng");
         }
         (string token, IEnumerable<string> roles) = GenerateJwtToken(user);
         string refreshToken = await GenerateRefreshToken(user);
@@ -161,7 +160,7 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
         ApplicationUser? user = await userManager.FindByNameAsync(registerModelView.Email);
         if (user != null)
         {
-            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Email already exists.");
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Email đã tồn tại");
         }
         ApplicationUser? newUser = mapper.Map<ApplicationUser>(registerModelView);
 
@@ -212,12 +211,12 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
             }
             else
             {
-                throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "OTP is invalid.");
+                throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "OTP không hợp lệ");
             }
         }
         else
         {
-            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "OTP is invalid or has expired.");
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "OTP không hợp lệ hoặc đã hết hạn");
         }
     }
 
@@ -227,7 +226,7 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
         string cacheKey = $"OTP_{emailModelView.Email}";
         if (memoryCache.TryGetValue(cacheKey, out string cachedValue))
         {
-            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "OTP has been sent, please check your email to confirm your account.");
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "OTP đã được gửi, vui lòng kiểm tra email của bạn để xác nhận tài khoản của bạn");
         }
         memoryCache.Set(cacheKey, OTP, TimeSpan.FromMinutes(1));
         await emailService.SendEmailAsync(emailModelView.Email, "Xác nhận tài khoản",
@@ -236,11 +235,11 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
     public async Task ChangePassword(ChangePasswordModel model)
     {
         string? userId = httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
-            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Token is invalid.");
-        ApplicationUser? admin = await userManager.FindByIdAsync(userId) ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "User not found.");
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Token không hợp lệ");
+        ApplicationUser? admin = await userManager.FindByIdAsync(userId) ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Không tìm thấy user");
         if (admin.DeletedTime.HasValue)
         {
-            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Accont have been locked.");
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Tài khoản đã bị xóa");
         }
         else
         {
@@ -276,10 +275,10 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
     public async Task ForgotPassword(EmailModelView emailModelView)
     {
         ApplicationUser? user = await userManager.FindByEmailAsync(emailModelView.Email)
-         ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Please check your email.");
+         ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Vui lòng kiểm tra email của bạn");
         if (!await userManager.IsEmailConfirmedAsync(user))
         {
-            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Please check your email.");
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Vui lòng kiểm tra email của bạn");
         }
         string OTP = GenerateOtp();
         string cacheKey = $"OTPResetPassword_{emailModelView.Email}";
@@ -290,10 +289,10 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
     public async Task ResetPassword(ResetPasswordModel resetPasswordModel)
     {
         ApplicationUser? user = await userManager.FindByEmailAsync(resetPasswordModel.Email)
-         ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "User not found.");
+         ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Không tìm thấy user");
         if (!await userManager.IsEmailConfirmedAsync(user))
         {
-            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Please check your email.");
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Vui lòng kiểm tra email của bạn");
         }
         string? token = await userManager.GeneratePasswordResetTokenAsync(user);
         IdentityResult? result = await userManager.ResetPasswordAsync(user, token, resetPasswordModel.Password);
@@ -314,7 +313,7 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
         {
             if (user.DeletedTime.HasValue)
             {
-                throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Account have been locked");
+                throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Tài khoản đã bị xóa");
             }
         }
         else

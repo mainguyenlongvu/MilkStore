@@ -27,15 +27,20 @@ namespace MilkStore.API.Controllers
             return Ok(Gift);
         }
 
-        [HttpPost()]
+        [HttpPost("PostByMail")]
+        //[Authorize(Roles = "Admin")]
+        public async Task<IActionResult> CreateOrderGiftMail(string mail,OrderGiftModel OrderGiftModel)
+        {
+            await _OGiftService.CreateOrderGiftInputUser(mail, OrderGiftModel); 
+            return Ok(BaseResponse<string>.OkResponse("Added successfully"));
+        }
+        [HttpPost("")]
         //[Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateOrderGift(OrderGiftModel OrderGiftModel)
         {
-
-            await _OGiftService.CreateOrderGift(OrderGiftModel);
+            await _OGiftService.CreateOrderGiftAuto(OrderGiftModel);
             return Ok(BaseResponse<string>.OkResponse("Added successfully"));
         }
-
         [HttpPut("{id}")]
         //[Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateOrderGift(string id, [FromBody] OrderGiftModel OrderGiftModel, OrderGiftStatus ogs)

@@ -29,39 +29,38 @@ namespace MilkStore.API.Controllers
         [HttpGet()]
 
         //[Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAll(string? id, int index = 1, int pageSize = 10)
+        public async Task<IActionResult> GetAll(string? id, OrderStatus? orderStatus, PaymentStatus? paymentStatus, int index = 1, int pageSize = 10)
         {            
-            BasePaginatedList<OrderResponseDTO> ord = await _orderService.GetAsync(id,index,pageSize);
-            return  Ok(BaseResponse<BasePaginatedList<OrderResponseDTO>>.OkResponse(ord));
+            BasePaginatedList<OrderResponseDTO> ord = await _orderService.GetAsync(id, orderStatus, paymentStatus, index, pageSize);
+            return Ok(BaseResponse<BasePaginatedList<OrderResponseDTO>>.OkResponse(ord));
         }
-        
+      
+        //[HttpPost]
+        ////[Authorize(Roles = "Member")]
+        //public async Task<IActionResult> Add([FromBody] CreateOrderDTO request)
+        //{
+        //    if (request == null || request.OrderItems == null || !request.OrderItems.Any())
+        //    {
+        //        return BadRequest("Order data or order items are missing.");
+        //    }
+        //    await _orderService.AddAsync(request.Order, request.OrderItems);
+        //    return Ok(BaseResponse<string>.OkResponse("Order added successfully!"));            
+        //}
 
-        [HttpPost]
-        //[Authorize(Roles = "Member")]
-        public async Task<IActionResult> Add(OrderModelView item)
-        {                        
-            await _orderService.AddAsync(item);
-            return Ok(BaseResponse<string>.OkResponse("Order added successfully!"));            
-        }
-
-        [HttpPut("AddVoucher{id}")]
-        //[Authorize(Roles = "Guest, Member")]
-        public async Task<IActionResult> AddVoucher(string id, string item)
-        {            
-            await _orderService.AddVoucher(id, item);
-            return Ok(BaseResponse<string>.OkResponse("Voucher added successfully!"));           
-        }
+        //[HttpPut("AddVoucher{id}")]
+        ////[Authorize(Roles = "Guest, Member")]
+        //public async Task<IActionResult> AddVoucher(string id, string item)
+        //{            
+        //    await _orderService.AddVoucher(id, item);
+        //    return Ok(BaseResponse<string>.OkResponse("Voucher added successfully!"));           
+        //}
 
 
         [HttpPut("Update{id}")]
         //[Authorize(Roles = "Guest, Member")]
         public async Task<IActionResult> Update(string id, OrderModelView item, [FromQuery] OrderStatus orderStatus, [FromQuery] PaymentStatus paymentStatus, [FromQuery] PaymentMethod paymentMethod)
         {            
-            await _orderService.UpdateAsync(id, item, orderStatus, paymentStatus, paymentMethod);
-            await _orderService.UpdateInventoryQuantity(id);
-            await _orderService.UpdateUserPoint(id);
-            await _orderService.SendingPaymentStatus_Mail(id);
-            await _orderService.SendingOrderStatus_Mail(id);
+            await _orderService.UpdateOrder(id, item, orderStatus, paymentStatus, paymentMethod);
             return Ok(BaseResponse<string>.OkResponse("Order was updated successfully!"));           
         }
 

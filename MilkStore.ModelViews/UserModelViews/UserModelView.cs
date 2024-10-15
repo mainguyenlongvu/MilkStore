@@ -6,15 +6,15 @@ namespace MilkStore.ModelViews.UserModelViews
 {
     public class UserModelView
     {
-        [Required(ErrorMessage = "Name is required")]
+        [Required(ErrorMessage = "Tên không được để trống")]
         public string Name { get; set; }
-        [Required(ErrorMessage = "Email is required")]
-        [EmailAddress(ErrorMessage = "Email is not valid")]
+        [Required(ErrorMessage = "Email không được để trống")]
+        [EmailAddress(ErrorMessage = "Email không hợp lệ")]
         public string Email { get; set; }
-        [Required(ErrorMessage = "PhoneNumber is required")]
-        [Phone(ErrorMessage = "PhoneNumber is not valid")]
+        [Required(ErrorMessage = "Số điện thoại không được để trống")]
+        [Phone(ErrorMessage = "Số điện thoại không hợp lệ")]
         public string? PhoneNumber { get; set; }
-        [Required(ErrorMessage = "RoleID is required")]
+        [Required(ErrorMessage = "Quyền truy cập không được để trống")]
 
         public string RoleID { get; set; }
     }

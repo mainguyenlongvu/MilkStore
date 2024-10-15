@@ -12,6 +12,7 @@
         public int UsingLimit { get; set; }
         public int UsedCount { get; set; }
         public int Status { get; set; }
+        public string Code { get; set; } = string.Empty;  // Thêm mã voucher
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
         public DateTimeOffset LastUpdatedAt { get; set; } = DateTimeOffset.Now;
         public DateTimeOffset? DeletedTime { get; set; } = null;

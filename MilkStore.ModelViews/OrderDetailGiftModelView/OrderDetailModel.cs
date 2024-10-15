@@ -12,6 +12,7 @@ namespace MilkStore.ModelViews.OrderDetailGiftModelView
         [Required(ErrorMessage = "Id ordergift không được để trống")]
         public required string? OrderGiftId { get; set; }
         [Required(ErrorMessage = "Id gift không được để trống")]
+        public float ShipFee { get; set; }
         public required string? GiftId { get; set; }
         public int quantity { get; set; }
     }

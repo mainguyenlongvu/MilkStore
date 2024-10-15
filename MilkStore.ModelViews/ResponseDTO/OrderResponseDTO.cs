@@ -10,7 +10,7 @@ namespace MilkStore.ModelViews.ResponseDTO
     {
         public required string Id { get; set; }
         public required Guid UserId { get; set; }
-        public string? VoucherId { get; set; }
+        public IList<string>? VoucherCode { get; set; }
         public DateTimeOffset OrderDate { get; set; }
         public required string OrderStatuss { get; set; }
         public required string PaymentStatuss { get; set; }
@@ -27,5 +27,6 @@ namespace MilkStore.ModelViews.ResponseDTO
         public required string LastUpdatedBy { get; set; }
         public required string DeletedBy { get; set; }
         public IList<OrderDetailResponseDTO> OrderDetailss { get; set; } = new List<OrderDetailResponseDTO>();
+        //public IList<VoucherResponseDTO> Vouchers { get; set; } = new List<VoucherResponseDTO>();
     }
 }

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using EFCore.BulkExtensions;
+using Microsoft.EntityFrameworkCore;
 using MilkStore.Contract.Repositories.Interface;
 using MilkStore.Core;
 using MilkStore.Repositories.Context;
@@ -90,5 +91,27 @@ namespace MilkStore.Repositories.UOW
         {
             return Task.FromResult(_dbSet.Update(obj));
         }
+        //public async Task UpdateRangeAsync(IEnumerable<T> entities)
+        //{
+        //    if (entities == null || !entities.Any())
+        //    {
+        //        throw new ArgumentException("The entity collection cannot be null or empty.");
+        //    }
+
+        //    foreach (var entity in entities)
+        //    {
+        //        _dbSet.Update(entity); 
+        //    }
+
+        //    await _context.SaveChangesAsync(); 
+        //}
+        public async Task BulkUpdateAsync(IList<T> entities)
+        {
+            if (entities == null || !entities.Any())
+                throw new ArgumentException("No entities provided for bulk update.");
+
+            await _context.BulkUpdateAsync(entities);
+        }
+
     }
 }

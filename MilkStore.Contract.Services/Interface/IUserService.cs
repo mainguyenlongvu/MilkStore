@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using MilkStore.Contract.Repositories.Entity;
+using MilkStore.Core;
+using MilkStore.Core.Constants;
 using MilkStore.ModelViews.AuthModelViews;
 using MilkStore.ModelViews.ResponseDTO;
 using MilkStore.ModelViews.UserModelViews;
@@ -13,10 +15,22 @@ namespace MilkStore.Contract.Services.Interface
 
         Task UpdateUser(UserUpdateModelView userUpdateModelView);
         Task DeleteUser(string userId);
-        Task<IEnumerable<UserResponeseDTO>> GetUser(string? id, int index = 1, int pageSize = 10);
         Task AddUserWithRoleAsync(UserModelView userModel);
-        Task AccumulatePoints(string userId, double totalAmount);
+        Task AccumulatePoints(string userId, double totalAmount, OrderStatus orderStatus);
         Task<UserProfileResponseModelView> GetUserProfile();
+
+        Task UpdateUserByAdmin(string userID, UserUpdateByAdminModel model);
+        Task<BasePaginatedList<UserResponseDTO>> GetAsync(
+            int? page,
+            int? pageSize,
+            string? name,
+            string? phone,
+            string? email,
+            SortBy sortBy,
+            SortOrder sortOrder,
+            string? role,
+            string? id
+            );
 
     }
 }

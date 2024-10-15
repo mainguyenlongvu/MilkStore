@@ -26,6 +26,27 @@ namespace MilkStore.Services.Service
 
         public async Task CreateVoucher(VoucherModelView voucherModel)
         {
+            // Kiểm tra mã voucher có đúng 6 ký tự không
+            if (!string.IsNullOrWhiteSpace(voucherModel.Code) && voucherModel.Code.Length != 6)
+            {
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Mã voucher phải có đúng 6 ký tự!");
+            }
+
+            // Kiểm tra mã Code đã nhập hay chưa, nếu chưa nhập thì sinh mã tự động
+            if (string.IsNullOrWhiteSpace(voucherModel.Code))
+            {
+                voucherModel.Code = GenerateVoucherCode(6);  // Tạo mã voucher tự động nếu người dùng không nhập
+            }
+
+            // Kiểm tra tính duy nhất của mã voucher
+            bool isCodeExisted = await _unitOfWork.GetRepository<Voucher>().Entities
+                .AnyAsync(voucher => voucher.VoucherCode == voucherModel.Code && voucher.DeletedTime == null);
+
+            if (isCodeExisted)
+            {
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Mã voucher đã tồn tại!");
+            }
+
             Voucher newVoucher = _mapper.Map<Voucher>(voucherModel);
             newVoucher.CreatedTime = CoreHelper.SystemTimeNow;
             newVoucher.LastUpdatedTime = CoreHelper.SystemTimeNow;
@@ -34,20 +55,27 @@ namespace MilkStore.Services.Service
             await _unitOfWork.GetRepository<Voucher>().InsertAsync(newVoucher);
             await _unitOfWork.SaveAsync();
         }
+        private string GenerateVoucherCode(int length)
+        {
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            Random random = new Random();
+            return new string(Enumerable.Repeat(chars, length)
+              .Select(s => s[random.Next(s.Length)]).ToArray());
+        }
 
         public async Task DeleteVoucher(string id)
         {
             if (string.IsNullOrWhiteSpace(id))
             {
-                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Please enter voucher ID!");
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Vui lòng nhập ID của voucher!");
             }
 
             Voucher? voucher = await _unitOfWork.GetRepository<Voucher>().GetByIdAsync(id)
-                ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"No voucher found with ID {id}");
+                ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Không tìm thấy voucher với ID {id}");
 
             if (voucher.DeletedTime != null)
             {
-                throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "This voucher has already been deleted!");
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Voucher này đã bị xóa trước đó!");
             }
 
             voucher.DeletedTime = CoreHelper.SystemTimeNow;
@@ -92,18 +120,47 @@ namespace MilkStore.Services.Service
         {
             if (string.IsNullOrWhiteSpace(id))
             {
-                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Please enter voucher ID!");
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Vui lòng nhập ID voucher!");
             }
 
-            Voucher? voucher = await _unitOfWork.GetRepository<Voucher>().GetByIdAsync(id)
-                ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"No voucher found with ID {id}");
+            Voucher? existingVoucher = await _unitOfWork.GetRepository<Voucher>().GetByIdAsync(id)
+                ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Không tìm thấy voucher với ID {id}");
 
-            _mapper.Map(voucherModel, voucher);
+            // Kiểm tra mã voucher có đúng 6 ký tự không
+            if (!string.IsNullOrWhiteSpace(voucherModel.Code) && voucherModel.Code.Length != 6)
+            {
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Mã voucher phải có đúng 6 ký tự!");
+            }
 
-            voucher.LastUpdatedTime = CoreHelper.SystemTimeNow;
+            // Nếu không nhập mã code, tạo mã voucher tự động
+            if (string.IsNullOrWhiteSpace(voucherModel.Code))
+            {
+                voucherModel.Code = GenerateVoucherCode(6);  // Tạo mã voucher tự động nếu người dùng không nhập
+            }
 
-            await _unitOfWork.GetRepository<Voucher>().UpdateAsync(voucher);
+            // Kiểm tra nếu mã Code bị trùng với mã của các voucher khác (ngoại trừ voucher hiện tại)
+            if (!string.IsNullOrWhiteSpace(voucherModel.Code) && voucherModel.Code != existingVoucher.VoucherCode)
+            {
+                bool isCodeExisted = await _unitOfWork.GetRepository<Voucher>().Entities
+                    .AnyAsync(voucher => voucher.VoucherCode == voucherModel.Code && voucher.DeletedTime == null && voucher.Id != id);
+
+                if (isCodeExisted)
+                {
+                    throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Mã voucher bị trùng lặp!");
+                }
+            }
+
+            // Ánh xạ dữ liệu từ voucherModel sang existingVoucher
+            _mapper.Map(voucherModel, existingVoucher);
+
+            // Cập nhật thời gian chỉnh sửa cuối cùng
+            existingVoucher.LastUpdatedTime = CoreHelper.SystemTimeNow;
+
+            await _unitOfWork.GetRepository<Voucher>().UpdateAsync(existingVoucher);
             await _unitOfWork.SaveAsync();
         }
+
+
+
     }
 }

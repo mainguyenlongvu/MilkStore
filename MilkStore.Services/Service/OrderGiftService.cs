@@ -1,24 +1,15 @@
 ﻿using AutoMapper;
-using MailKit;
 using Microsoft.AspNetCore.Http;
 using MilkStore.Contract.Repositories.Entity;
 using MilkStore.Contract.Repositories.Interface;
 using MilkStore.Contract.Services.Interface;
 using MilkStore.Core.Base;
 using MilkStore.Core.Constants;
-using MilkStore.ModelViews.GiftModelViews;
 using MilkStore.ModelViews.OrderGiftModelViews;
 using MilkStore.ModelViews.ResponseDTO;
 using MilkStore.Repositories.Context;
 using MilkStore.Repositories.Entity;
-using MilkStore.Services.EmailSettings;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics.Eventing.Reader;
-using System.Linq;
 using System.Security.Claims;
-using System.Text;
-using System.Threading.Tasks;
 using OrderGiftStatus = MilkStore.Contract.Repositories.Entity.OrderGiftStatus;
 namespace MilkStore.Services.Service
 {
@@ -38,7 +29,7 @@ namespace MilkStore.Services.Service
             _httpContextAccessor = httpContextAccessor;
         }
 
-        public async Task CreateOrderGift(OrderGiftModel orderGiftModel)
+        public async Task CreateOrderGiftAuto(OrderGiftModel orderGiftModel)
         {
             string? userID = _httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrWhiteSpace(userID))
@@ -48,11 +39,36 @@ namespace MilkStore.Services.Service
             OrderGift newOG = _mapper.Map<OrderGift>(orderGiftModel);
             newOG.CreatedTime = DateTime.UtcNow;
             newOG.UserID = Guid.Parse(userID);
-            newOG.Status = OrderGiftStatus.Pending;
+            newOG.Status = OrderGiftStatus.Isnull;
             await _unitOfWork.GetRepository<OrderGift>().InsertAsync(newOG);
             await _unitOfWork.SaveAsync();
         }
+        public Guid FindIDByMail(string mail, IEnumerable<ApplicationUser> user)
+        {
+            foreach (var item in user)
+            {
+                if(item.Email == mail)
+                {
+                    return item.Id;
+                }    
+            }
+            return Guid.Empty;
+        }
+        public async Task CreateOrderGiftInputUser(string mail,OrderGiftModel orderGiftModel)
+        {
+            IEnumerable<ApplicationUser> user = await _unitOfWork.GetRepository<ApplicationUser>().GetAllAsync();
+            Guid temp = FindIDByMail(mail, user);
+            if (temp == Guid.Empty) {
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Error!!! Not exist user");
+            }
 
+            OrderGift newOG = _mapper.Map<OrderGift>(orderGiftModel);
+            newOG.CreatedTime = DateTime.UtcNow;
+            newOG.UserID = temp;
+            newOG.Status = OrderGiftStatus.Isnull;
+            await _unitOfWork.GetRepository<OrderGift>().InsertAsync(newOG);
+            await _unitOfWork.SaveAsync();
+        }
         public async Task DeleteOrderGift(string id)
         {
             if (String.IsNullOrWhiteSpace(id))
@@ -116,7 +132,7 @@ namespace MilkStore.Services.Service
             string temp = "Thời gian giao dự kiến từ " + futureDate.ToString("dd/MM/yyyy") + " đến " + futureDate2.ToString("dd/MM/yyyy");
             string productname = ""; // lấy thông tin theo id
             
-            int dem = 0;
+            //int dem = 0;
             OrderGift newOG = _mapper.Map<OrderGift>(orderGiftModel);
             newOG.UserID = Guid.Parse(userID);
             newOG.Status = ordergiftstatus;
@@ -129,7 +145,7 @@ namespace MilkStore.Services.Service
                 if (item.OrderGiftId == id)
                 {
                     Gift gift = await _unitOfWork.GetRepository<Gift>().GetByIdAsync(item.GiftId);
-                    dem += gift.point * item.quantity;
+                    //dem += gift.point * item.quantity;
                     productname += " " + gift.Products.ProductName + " Số lượng: " + item.quantity;
                 }
             }
@@ -137,9 +153,9 @@ namespace MilkStore.Services.Service
             if (newOG.Status == OrderGiftStatus.Confirmed)
             {
                 _emailService.SendEmailAsync(user.Email, "ĐỔI ĐIỂM LẤY QUÀ - MILKSTORE", temp + temp1);
-                user.Points = user.Points - dem;
-                await _unitOfWork.GetRepository<ApplicationUser>().UpdateAsync(user);
-                await _unitOfWork.SaveAsync();
+                //user.Points = user.Points - dem;
+                //await _unitOfWork.GetRepository<ApplicationUser>().UpdateAsync(user);
+                //await _unitOfWork.SaveAsync();
             }
             OrderGift existingOGift = await _unitOfWork.GetRepository<OrderGift>().GetByIdAsync(id)
                 ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Error!!! OrderGift null");

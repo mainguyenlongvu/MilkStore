@@ -6,6 +6,7 @@ namespace MilkStore.Contract.Repositories.Entity
 {
     public enum OrderGiftStatus
     {
+        Isnull,
         Pending,
         Confirmed,
         Cancelled,

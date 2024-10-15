@@ -12,7 +12,7 @@ namespace MilkStore.Contract.Services.Interface
     {
         Task<IEnumerable<PreOrders>> GetPreOrders(string? id, int page, int pageSize);
         Task CreatePreOrders(PreOrdersModelView preOrdersModel);
-        Task UpdatePreOrders(string id, PreOrdersModelView preOrdersModel);
+        //Task UpdatePreOrders(string id, PreOrdersModelView preOrdersModel);
         Task DeletePreOrders(string id);
     }
 }

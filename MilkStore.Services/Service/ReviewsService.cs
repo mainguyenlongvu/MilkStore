@@ -34,7 +34,7 @@ namespace MilkStore.Services.Service
             OrderDetails? orderDetail = await _unitOfWork.GetRepository<OrderDetails>().GetByIdAsync(reviewsModel.OrderDetailID);
             if (orderDetail == null)
             {
-                throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Order details not found with {reviewsModel.OrderDetailID}!!");
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Không tìm thấy chi tiết đơn hàng nào với mã {reviewsModel.OrderDetailID}!!");
             }
                         
             Order? order = await _unitOfWork.GetRepository<Order>().GetByIdAsync(orderDetail.OrderID);
@@ -43,22 +43,27 @@ namespace MilkStore.Services.Service
 
             if(string.IsNullOrWhiteSpace(userID) || string.IsNullOrWhiteSpace(userEmail))
             {
-                throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Please log in with an email verified account!");
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Vui lòng đăng nhập vào bằng tài khoản đã xác thực!");
             }
             if (order == null || order.UserId.ToString() != userID)
             {
-                throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "You do not have access to review this product!");
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Bạn không có quyền đánh giá sản phẩm này!");
+            }
+            //Kiểm tra đơn hàng đã được giao và thanh toán
+            if (order.OrderStatuss != OrderStatus.Delivered && order.PaymentStatuss != PaymentStatus.Paid)
+            {
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.Forbidden, "Bạn chỉ có thể đánh giá đơn hàng sau khi đơn hàng đã được giao và thanh toán!");
             }
             var productInOrder = order.OrderDetailss.Where(od => od.ProductID.Contains(orderDetail.ProductID)).FirstOrDefault();
             if (productInOrder == null)
             {
-                throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Order details not found for {orderDetail.ProductID}!!");
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Không tìm thấy mã sản phẩm {orderDetail.ProductID} trong đơn hàng!!");
             }
             Review newReview = _mapper.Map<Review>(reviewsModel);
             newReview.UserID = Guid.Parse(userID);
             newReview.ProductsID = orderDetail.ProductID;
             newReview.OrderID = orderDetail.OrderID;
-            newReview.CreatedTime = DateTime.UtcNow;
+            newReview.CreatedTime = CoreHelper.SystemTimeNow;
             newReview.CreatedBy = userID;
             await _unitOfWork.GetRepository<Review>().InsertAsync(newReview);
             await _unitOfWork.SaveAsync();
@@ -87,7 +92,7 @@ namespace MilkStore.Services.Service
             Review review = await _unitOfWork.GetRepository<Review>().GetByIdAsync(id);
             if (review == null)
             {
-                throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.BadRequest, $"No reviews found for {id}!!");
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.BadRequest, $"Không tìm thấy đánh giá nào có mã {id}!!");
             }
             review.DeletedTime = CoreHelper.SystemTimeNow;
             review.DeletedBy = "Admin";
@@ -118,7 +123,7 @@ namespace MilkStore.Services.Service
                     .FirstOrDefaultAsync(r => r.Id == id && r.DeletedTime == null);
                 if (review == null)
                 {
-                    throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"No reviews found for {id}!!");
+                    throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Không tìm thấy đánh giá nào có mã {id}!!");
                 }
                 return _mapper.Map<List<Review>>(review);
             }
@@ -131,15 +136,15 @@ namespace MilkStore.Services.Service
             Review? review = await _unitOfWork.GetRepository<Review>().GetByIdAsync(id);            
             if (review == null)
             {
-                throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"No reviews found for {id}!!");
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Không tìm thấy đánh giá nào có mã {id}!!");
             }
             string userID = _httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier).Value;
             if (string.IsNullOrWhiteSpace(userID))
             {
-                throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Please log in with an authenticated account!");
+                throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Vui lòng đăng nhập vào bằng tài khoản đã xác thực!");
             }
             _mapper.Map(reviewsModel, review);            
-            review.LastUpdatedTime = DateTime.UtcNow;            
+            review.LastUpdatedTime = CoreHelper.SystemTimeNow;            
             review.LastUpdatedBy = userID;
             await _unitOfWork.GetRepository<Review>().UpdateAsync(review);
             await _unitOfWork.SaveAsync();

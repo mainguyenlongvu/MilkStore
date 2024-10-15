@@ -25,56 +25,69 @@ namespace MilkStore.Services.Service
             _unitOfWork = unitOfWork;
             _mapper = mapper;
         }
-        public async Task<IEnumerable<ProductResponseDTO>> GetProductsName(string? ProductdName, string? CategoryName)
+        public async Task<BasePaginatedList<ProductResponseDTO>> GetProductsName(string ProductdName, string CategoryName)
         {
-            IEnumerable<Products> products = await _unitOfWork.GetRepository<Products>().GetAllAsync();
-            if(CategoryName == null && ProductdName == null)
+            IQueryable<Products> products = _unitOfWork.GetRepository<Products>().Entities;
+
+            if (CategoryName == null && ProductdName == null)
             {
-                return _mapper.Map<IEnumerable<ProductResponseDTO>>(products);
-            }    
+                // Retrieve the list of products and map to DTO
+                var productsList = await products.ToListAsync();
+                var productsModel = _mapper.Map<List<ProductResponseDTO>>(productsList);
+                return new BasePaginatedList<ProductResponseDTO>(productsModel, productsModel.Count, 1, 1);
+            }
+
             if (CategoryName == null)
             {
-                products = products.Where(p => p.ProductName.Contains(ProductdName, StringComparison.OrdinalIgnoreCase) && p.DeletedTime == null);
+                products = products.Where(p => p.ProductName.ToLower().Contains(ProductdName.ToLower()) && p.DeletedTime == null);
             }
+
             if (ProductdName == null)
             {
                 string temp = "";
                 IEnumerable<Category> cte = await _unitOfWork.GetRepository<Category>().GetAllAsync();
                 foreach (Category c in cte)
                 {
-                    if (c.CategoryName == CategoryName && c.DeletedTime == null)
+                    if (c.CategoryName.Equals(CategoryName, StringComparison.OrdinalIgnoreCase) && c.DeletedTime == null)
                     {
                         temp = c.Id;
+                        break;
                     }
                 }
-                products = products.Where(p => p.CategoryId.Contains(temp, StringComparison.OrdinalIgnoreCase) && p.DeletedTime == null);
+
+                products = products.Where(p => p.CategoryId.ToLower().Contains(temp.ToLower()) && p.DeletedTime == null);
             }
 
-            return _mapper.Map<IEnumerable<ProductResponseDTO>>(products);
+
+            // Retrieve the filtered list and map it to the DTO list
+            var filteredProductsList = await products.ToListAsync();
+            var productModels = _mapper.Map<List<ProductResponseDTO>>(filteredProductsList);
+            return new BasePaginatedList<ProductResponseDTO>(productModels, productModels.Count, 1, 1);
         }
+
         public async Task CreateProducts(ProductsModel productsModel)
         {
             IEnumerable<Products> pd = await _unitOfWork.GetRepository<Products>().GetAllAsync();
             foreach (Products p in pd)
             {
-                if(p.ProductName.Equals(productsModel.ProductName, StringComparison.OrdinalIgnoreCase))
+                if (p.ProductName.Equals(productsModel.ProductName, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Error!!! Same product name");
-                }    
+                }
             }
             Products newProduct = _mapper.Map<Products>(productsModel);
             newProduct.CreatedTime = DateTime.UtcNow;
 
             await _unitOfWork.GetRepository<Products>().InsertAsync(newProduct);
             await _unitOfWork.SaveAsync();
-            
+
         }
         public async Task DeleteProducts(string id)
         {
-            if(string.IsNullOrWhiteSpace(id))
+            if (string.IsNullOrWhiteSpace(id))
             {
                 throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Error!!! Input wrong id");
-            }    
+            }
             Products product = await _unitOfWork.GetRepository<Products>().GetByIdAsync(id)
                 ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Error!!! Product null");
 
@@ -88,15 +101,36 @@ namespace MilkStore.Services.Service
 
         }
 
+        public async Task<BasePaginatedList<ProductResponseDTO>> GetProductByNameId(string id, int pageIndex, int pageSize, string ProductdName, string CategoryName)
+        {
+            if (pageIndex == 0 || pageSize == 0)
+            {
+                pageIndex = 1;
+                pageSize = 5;
+            }
+
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                if (!string.IsNullOrEmpty(ProductdName) && string.IsNullOrEmpty(CategoryName))
+                {
+                    return await GetProductsName(ProductdName, CategoryName);
+                }
+                if (string.IsNullOrEmpty(ProductdName) && !string.IsNullOrEmpty(CategoryName))
+                {
+                    return await GetProductsName(ProductdName, CategoryName);
+                }
+            }
+            return await GetProducts(id, pageIndex, pageSize);
+        }
 
         public async Task<BasePaginatedList<ProductResponseDTO>> GetProducts(string? id, int pageIndex, int pageSize)
         {
             IQueryable<Products> query = _unitOfWork.GetRepository<Products>().Entities;
-            if(pageIndex==0 || pageSize == 0)
+            if (pageIndex == 0 || pageSize == 0)
             {
                 pageSize = 5;
                 pageIndex = 1;
-            }    
+            }
             if (!string.IsNullOrWhiteSpace(id))
             {
                 query = query.Where(p => p.Id == id && p.DeletedTime == null);
@@ -121,9 +155,10 @@ namespace MilkStore.Services.Service
         }
 
 
+
         private async Task UpdatePreOrdersDeletedTime(string productId)
         {
-              
+
             var preOrders = await _unitOfWork.GetRepository<PreOrders>()
                 .Entities
                 .Where(p => p.ProductID == productId && p.DeletedTime == null)
@@ -132,6 +167,7 @@ namespace MilkStore.Services.Service
             foreach (var preOrder in preOrders)
             {
                 preOrder.DeletedTime = CoreHelper.SystemTimeNow;
+                preOrder.Status = PreOrderStatus.Available;
                 await _unitOfWork.GetRepository<PreOrders>().UpdateAsync(preOrder);
             }
 
