@@ -87,14 +87,6 @@ namespace MilkStore.Services.Service
 
         public async Task UpdateCategory(string id, CategoryModel CategoryModel)
         {
-            IEnumerable<Category> Cte = await _unitOfWork.GetRepository<Category>().GetAllAsync();
-            foreach (Category c in Cte)
-            {
-                if (c.CategoryName.Equals(CategoryModel.CategoryName, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Error!!! Same category name");
-                }
-            }
             if (string.IsNullOrWhiteSpace(id))
             {
                 throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Error!!! Input wrong id");

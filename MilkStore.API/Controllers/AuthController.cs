@@ -24,21 +24,21 @@ namespace MilkStore.API.Controllers
         public async Task<IActionResult> Register(RegisterModelView model)
         {
             await _authService.Register(model);
-            return Ok(BaseResponse<string>.OkResponse("Register success! Please check your email."));
+            return Ok(BaseResponse<string>.OkResponse("Đăng ký thành công, vui lòng kiểm tra email để xác nhận"));
         }
 
         [HttpPatch("Confirm_Email")]
         public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmOTPModel confirmOTPModel)
         {
             await _authService.VerifyOtp(confirmOTPModel, false);
-            return Ok(BaseResponse<string>.OkResponse("Confirm email success!"));
+            return Ok(BaseResponse<string>.OkResponse("Xác nhận email thành công!"));
         }
 
         [HttpPatch("Resend_Confirmation_Email")]
         public async Task<IActionResult> ResendConfirmationEmail(EmailModelView model)
         {
             await _authService.ResendConfirmationEmail(model);
-            return Ok(BaseResponse<string>.OkResponse("Email has been sent again!"));
+            return Ok(BaseResponse<string>.OkResponse("Emaill đã được gửi lại!"));
         }
 
         [Authorize]
@@ -46,7 +46,7 @@ namespace MilkStore.API.Controllers
         public async Task<IActionResult> ChangePassword(ChangePasswordModel model)
         {
             await _authService.ChangePassword(model);
-            return Ok(BaseResponse<string>.OkResponse("Change password success"));
+            return Ok(BaseResponse<string>.OkResponse("Thay đổi mật khẩu thành công!"));
         }
 
         [HttpPost("RefreshToken")]
@@ -60,21 +60,21 @@ namespace MilkStore.API.Controllers
         public async Task<IActionResult> ForgotPassword(EmailModelView model)
         {
             await _authService.ForgotPassword(model);
-            return Ok(BaseResponse<string>.OkResponse(" Email change password has been sent!"));
+            return Ok(BaseResponse<string>.OkResponse("Đã gửi email xác nhận yêu cầu thay đổi mật khẩu."));
         }
 
         [HttpPatch("Confirm_OTP_ResetPassword")]
         public async Task<IActionResult> ConfirmOTPResetPassword(ConfirmOTPModel model)
         {
             await _authService.VerifyOtp(model, true);
-            return Ok(BaseResponse<string>.OkResponse("Confirm OTP success!"));
+            return Ok(BaseResponse<string>.OkResponse("Xác nhận thay đổi mật khẩu thành công!"));
         }
 
         [HttpPatch("ResetPassword")]
         public async Task<IActionResult> ResetPassword(ResetPasswordModel model)
         {
             await _authService.ResetPassword(model);
-            return Ok(BaseResponse<string>.OkResponse("Reset password success!"));
+            return Ok(BaseResponse<string>.OkResponse("Đã đặt lại mật khẩu thành công!"));
         }
 
         [HttpPost("signin-google")]

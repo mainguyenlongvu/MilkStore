@@ -12,8 +12,8 @@ using MilkStore.Repositories.Context;
 namespace MilkStore.Repositories.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    [Migration("20241015131215_initial")]
-    partial class initial
+    [Migration("20241018140658_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -760,6 +760,54 @@ namespace MilkStore.Repositories.Migrations
                     b.ToTable("Reviews");
                 });
 
+            modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.TransactionHistory", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<double>("Amount")
+                        .HasColumnType("float");
+
+                    b.Property<double>("BalanceAfterTransaction")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Content")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("CreatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset?>("DeletedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("LastUpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("LastUpdatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("TransactionDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("TransactionHistories", (string)null);
+                });
+
             modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.Voucher", b =>
                 {
                     b.Property<string>("Id")
@@ -830,6 +878,9 @@ namespace MilkStore.Repositories.Migrations
 
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("int");
+
+                    b.Property<double>("Balance")
+                        .HasColumnType("float");
 
                     b.Property<string>("ConcurrencyStamp")
                         .HasColumnType("nvarchar(max)");
@@ -1105,6 +1156,17 @@ namespace MilkStore.Repositories.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("MilkStore.Contract.Repositories.Entity.TransactionHistory", b =>
+                {
+                    b.HasOne("MilkStore.Repositories.Entity.ApplicationUser", "User")
+                        .WithMany("TransactionHistories")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("MilkStore.Repositories.Entity.ApplicationUser", b =>
                 {
                     b.HasOne("MilkStore.Repositories.Entity.ApplicationUser", "Manager")
@@ -1161,6 +1223,8 @@ namespace MilkStore.Repositories.Migrations
                     b.Navigation("Members");
 
                     b.Navigation("Orders");
+
+                    b.Navigation("TransactionHistories");
 
                     b.Navigation("UserRoles");
 

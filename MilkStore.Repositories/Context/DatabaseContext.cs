@@ -17,6 +17,7 @@ namespace MilkStore.Repositories.Context
         public virtual DbSet<ApplicationUserLogins> ApplicationUserLogins => Set<ApplicationUserLogins>();
         public virtual DbSet<ApplicationRoleClaims> ApplicationRoleClaims => Set<ApplicationRoleClaims>();
         public virtual DbSet<ApplicationUserTokens> ApplicationUserTokens => Set<ApplicationUserTokens>();
+
         public virtual DbSet<Products> Products => Set<Products>();
         public virtual DbSet<Post> Posts => Set<Post>();
         public virtual DbSet<Order> Orders => Set<Order>();
@@ -27,7 +28,9 @@ namespace MilkStore.Repositories.Context
         public virtual DbSet<Category> Category => Set<Category>();
         public virtual DbSet<Gift> Gifts => Set<Gift>();
         public virtual DbSet<OrderGift> OrderGifts => Set<OrderGift>();
-        public virtual DbSet<OrderDetailGift> OrderDetailGifts => Set<OrderDetailGift>();        
+        public virtual DbSet<OrderDetailGift> OrderDetailGifts => Set<OrderDetailGift>();
+        public virtual DbSet<TransactionHistory> TransactionHistories => Set<TransactionHistory>();
+
         #endregion
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -73,7 +76,14 @@ namespace MilkStore.Repositories.Context
                 entity.ToTable("UserTokens");
             });
 
-
+            modelBuilder.Entity<TransactionHistory>(entity =>
+            {
+                entity.ToTable("TransactionHistories");
+                entity.HasOne(th => th.User)
+                      .WithMany(u => u.TransactionHistories)
+                      .HasForeignKey(th => th.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
 
             //modelBuilder.Entity<Post>()
             //    .HasMany(p => p.Products)
@@ -158,6 +168,7 @@ namespace MilkStore.Repositories.Context
                 .WithMany()
                 .HasForeignKey(r => r.UserID)
                 .OnDelete(DeleteBehavior.NoAction);
+
 
 
         }

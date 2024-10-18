@@ -37,6 +37,7 @@ namespace MilkStore.API
             services.AddAuthenticationBearer(configuration);
             services.AddAutoMapperConfig();
             services.AddEmailConfig(configuration);
+            services.ConfigureSession();
         }
         public static void AddSignalConfig(this IServiceCollection services)
         {
@@ -129,6 +130,7 @@ namespace MilkStore.API
             services.AddScoped<IStatisticalService, StatisticalService>();
             services.AddScoped<IStatisticalProductService, StatisticalProductService>();
             services.AddScoped<ITransactionService, TransactionService>();
+            services.AddSingleton<ICloudinaryService,CloudinaryService>();
             services.AddHttpContextAccessor();
         }
 
@@ -200,6 +202,16 @@ namespace MilkStore.API
         {
             services.Configure<DataProtectionTokenProviderOptions>(options =>
                     options.TokenLifespan = TimeSpan.FromMinutes(30));
+        }
+        public static void ConfigureSession (this IServiceCollection services)
+        {            
+            services.AddDistributedMemoryCache(); // Cấu hình cache cho session
+            services.AddSession(options =>
+            {
+                options.IdleTimeout = TimeSpan.FromMinutes(30); // Thời gian timeout cho session
+                options.Cookie.HttpOnly = true; // Cookie chỉ có thể truy cập từ server
+                options.Cookie.IsEssential = true; // Cookie cần thiết cho ứng dụng
+            });
         }
     }
 }

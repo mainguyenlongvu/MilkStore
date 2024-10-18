@@ -138,6 +138,7 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
         {
             throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Mật khẩu không đúng");
         }
+        httpContextAccessor.HttpContext.Session.SetString("UserID", user.Id.ToString());
         (string token, IEnumerable<string> roles) = GenerateJwtToken(user);
         string refreshToken = await GenerateRefreshToken(user);
         return new AuthResponse

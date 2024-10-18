@@ -17,5 +17,8 @@ namespace MilkStore.ModelViews.UserModelViews
         [Required(ErrorMessage = "Quyền truy cập không được để trống")]
 
         public string RoleID { get; set; }
+
+        [Range(0, double.MaxValue, ErrorMessage = "Số tiền phải lớn hơn hoặc bằng 0")]
+        public double Balance { get; set; } = 0;
     }
 }

@@ -15,10 +15,11 @@ public class PaymentController(IPaymentService paymentService) : ControllerBase
         string paymentUrl = paymentService.CreatePayment(request);
         return Ok(BaseResponse<object>.OkResponse(paymentUrl));
     }
-    [HttpPost("IPN")]
-    public async Task<IActionResult> IPN(VNPayIPNRequest request)
+    [HttpGet("IPN")]
+    public async Task<IActionResult> IPN([FromQuery] VNPayIPNRequest request)
     {
-        await paymentService.HandleIPN(request);
+        await paymentService.HandleIPN(request);        
         return Ok(BaseResponse<object>.OkResponse("Thanh toán thành công!"));
     }
+
 }

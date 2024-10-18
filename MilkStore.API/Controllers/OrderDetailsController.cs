@@ -27,7 +27,7 @@ namespace MilkStore.API.Controllers
             BasePaginatedList<OrderDetailResponseDTO> detail = await _orderDetailsService.ReadPersonalOrderDetails(orderId, orderDetailStatus, page, pageSize);
             return Ok(BaseResponse<BasePaginatedList<OrderDetailResponseDTO>>.OkResponse(detail));
         }
-        //[Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, Staff")]
         // GET ALL
         [HttpGet("Get_all_order_detail")]
         public async Task<IActionResult> GetAllOrderDetails(string? orderId, string? userID, OrderDetailStatus? orderDetailStatus, int page = 1, int pageSize = 10)
@@ -35,31 +35,28 @@ namespace MilkStore.API.Controllers
             BasePaginatedList<OrderDetailResponseDTO> detail = await _orderDetailsService.ReadAllOrderDetails(orderId, userID, orderDetailStatus, page, pageSize);
             return Ok(BaseResponse<BasePaginatedList<OrderDetailResponseDTO>>.OkResponse(detail));
         }
-        // POST
-        //[Authorize(Roles = "Guest, Member")]
+        // POST        
         [HttpPost("Add_to_cart")]
         public async Task<IActionResult> CreateOrderDetails(OrderDetailsModelView model)
         {
             await _orderDetailsService.CreateOrderDetails(model);
-            return Ok(BaseResponse<string>.OkResponse("Order detail added successfully!"));
+            return Ok(BaseResponse<string>.OkResponse("Đã tạo chi tiết đơn hàng!"));
         }
 
-        // PUT
-        //[Authorize(Roles = "Guest, Member")]
+        // PUT        
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateOrderDetails(string id, OrderDetailsModelView model)
         {            
             OrderDetails detail = await _orderDetailsService.UpdateOrderDetails(id, model);
-            return Ok(BaseResponse<string>.OkResponse("Order detail update successfully!"));
+            return Ok(BaseResponse<string>.OkResponse("Chi tiết đơn hàng được cập nhật thành công!"));
         }
 
-        // DELETE
-        //[Authorize(Roles = "Guest, Member")]
+        // DELETE        
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteOrderDetails(string id)
         {            
             await _orderDetailsService.DeleteOrderDetails(id);
-            return Ok(BaseResponse<string>.OkResponse("Order detail delete successfully!"));            
+            return Ok(BaseResponse<string>.OkResponse("Chi tiết đơn hàng được cập nhật thành công!"));            
         }
     }
 }

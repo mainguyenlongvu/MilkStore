@@ -28,7 +28,7 @@ namespace MilkStore.API.Controllers
         //    var product = await _ProductsService.GetProductsName(Productname, CategoryName);
         //    return Ok(product);
         //}
-        [HttpPost()]
+        [HttpPost("upload")]
         //[Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateProducts(ProductsModel ProductsModel)
         {
@@ -37,7 +37,7 @@ namespace MilkStore.API.Controllers
         }
         [HttpPut("{id}")]
         //[Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateProduct(string id, [FromBody] ProductsModel productsModel)
+        public async Task<IActionResult> UpdateProduct(string id, ProductsModel productsModel)
         {
             await _ProductsService.UpdateProducts(id, productsModel);
             return Ok(BaseResponse<string>.OkResponse("Updated successfully"));

@@ -10,8 +10,7 @@ using MilkStore.Core.Utils;
 using MilkStore.ModelViews.ProductsModelViews;
 using MilkStore.ModelViews.ResponseDTO;
 using MilkStore.Repositories.Context;
-using Org.BouncyCastle.Math.Field;
-
+using Microsoft.AspNetCore.Http;
 namespace MilkStore.Services.Service
 {
     public class ProductsService : IProductsService
@@ -19,12 +18,16 @@ namespace MilkStore.Services.Service
         private readonly IUnitOfWork _unitOfWork;
         private readonly DatabaseContext context;
         private readonly IMapper _mapper;
-        public ProductsService(DatabaseContext context, IUnitOfWork unitOfWork, IMapper mapper)
+
+        private readonly ICloudinaryService _cloudinaryService;
+        public ProductsService(DatabaseContext context, IUnitOfWork unitOfWork, IMapper mapper, ICloudinaryService cloudinaryService)
         {
             this.context = context;
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _cloudinaryService = cloudinaryService;
         }
+
         public async Task<BasePaginatedList<ProductResponseDTO>> GetProductsName(string ProductdName, string CategoryName)
         {
             IQueryable<Products> products = _unitOfWork.GetRepository<Products>().Entities;
@@ -65,23 +68,36 @@ namespace MilkStore.Services.Service
             return new BasePaginatedList<ProductResponseDTO>(productModels, productModels.Count, 1, 1);
         }
 
-        public async Task CreateProducts(ProductsModel productsModel)
+        public async Task CreateProducts(ProductsModel ProductModel)
         {
             IEnumerable<Products> pd = await _unitOfWork.GetRepository<Products>().GetAllAsync();
             foreach (Products p in pd)
             {
-                if (p.ProductName.Equals(productsModel.ProductName, StringComparison.OrdinalIgnoreCase))
+                if (p.ProductName.Equals(ProductModel.ProductName, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Error!!! Same product name");
                 }
             }
-            Products newProduct = _mapper.Map<Products>(productsModel);
+
+            // Xử lý ảnh
+            string imageUrl = null;
+            if (ProductModel.Image != null)
+            {
+                // Giả sử bạn đã có ICloudinaryService
+                imageUrl = await _cloudinaryService.UploadImageAsync(ProductModel.Image);
+            }
+
+            // Ánh xạ từ CreateProductModel sang Products
+            Products newProduct = _mapper.Map<Products>(ProductModel);
+
+            // Thiết lập các thuộc tính còn lại
+            newProduct.ImageUrl = imageUrl; // Lưu URL của ảnh vào thuộc tính ImageUrl
             newProduct.CreatedTime = DateTime.UtcNow;
 
             await _unitOfWork.GetRepository<Products>().InsertAsync(newProduct);
             await _unitOfWork.SaveAsync();
-
         }
+
         public async Task DeleteProducts(string id)
         {
             if (string.IsNullOrWhiteSpace(id))
@@ -176,29 +192,38 @@ namespace MilkStore.Services.Service
 
         public async Task UpdateProducts(string id, ProductsModel productsModel)
         {
-            IEnumerable<Products> pd = await _unitOfWork.GetRepository<Products>().GetAllAsync();
-            foreach (Products p in pd)
-            {
-                if (p.ProductName.Equals(productsModel.ProductName, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Error!!! Same product name");
-                }
-            }
             Products product = await _unitOfWork.GetRepository<Products>().GetByIdAsync(id)
                 ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, $"Doesn't exist{id}");
+
             var oldQuantityInStock = product.QuantityInStock;
+            string oldImageUrl = product.ImageUrl;
 
             _mapper.Map(productsModel, product);
             product.LastUpdatedTime = CoreHelper.SystemTimeNow;
+
+            if (productsModel.Image != null)
+            {
+                product.ImageUrl = await _cloudinaryService.UploadImageAsync(productsModel.Image);
+
+                if (!string.IsNullOrEmpty(oldImageUrl))
+                {
+                    var publicId = oldImageUrl.Split('/').Last().Split('.')[0];
+                    await _cloudinaryService.DeleteImageAsync(publicId);
+                }
+            }
+            else
+            {
+                product.ImageUrl = oldImageUrl;
+            }
 
             await _unitOfWork.GetRepository<Products>().UpdateAsync(product);
             await _unitOfWork.SaveAsync();
 
             if (product.QuantityInStock > 0 && oldQuantityInStock <= 0)
             {
-                //Tự động xóa Pre-order khi số lượng sản phẩm > 0
                 await UpdatePreOrdersDeletedTime(product.Id);
             }
         }
+
     }
 }

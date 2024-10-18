@@ -30,7 +30,7 @@ namespace MilkStore.Services.Service
         private readonly IMapper _mapper = mapper;
         private readonly IHttpContextAccessor httpContextAccessor = httpContextAccessor;
 
-        // Cập nhật thông tin người dùng
+        // Cập nhật thông tin cá nhân của người dùng
         public async Task UpdateUser(UserUpdateModelView userUpdateModelView)
         {
             string? userID = httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
@@ -155,7 +155,7 @@ namespace MilkStore.Services.Service
 
             // Tính điểm thưởng: 10 điểm cho mỗi 10.000 VND
             int Points = (int)(totalAmount / 10000) * 10;
-            if(user.Points > 0 && orderStatus == OrderStatus.Refunded)
+            if (user.Points > 0 && orderStatus == OrderStatus.Refunded)
             {
                 user.Points -= Points;
             }
@@ -307,6 +307,7 @@ namespace MilkStore.Services.Service
                     Name = u.Name,
                     Email = u.Email,
                     PhoneNumber = u.PhoneNumber,
+                    Balance = u.Balance,
                     RoleName = u.UserRoles.FirstOrDefault().Role.Name,
                     CreatedBy = u.CreatedBy,
                     LastUpdatedBy = u.LastUpdatedBy,

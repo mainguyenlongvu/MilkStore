@@ -15,11 +15,12 @@ namespace MilkStore.Contract.Repositories.Entity
         Cancelled,
         Delivering,
         Delivered,
+        Returning,
         Refunded
     }
     public enum PaymentMethod
     {
-        Cash, // ví
+        UserWallet,
         Online,
         COD
     }

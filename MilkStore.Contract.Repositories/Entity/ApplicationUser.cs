@@ -20,11 +20,17 @@ namespace MilkStore.Repositories.Entity
         public DateTimeOffset? DeletedTime { get; set; }
         public virtual ICollection<ApplicationUserLogins> Logins { get; set; } = new List<ApplicationUserLogins>();
         public virtual ICollection<ApplicationUserRoles> UserRoles { get; set; } = new List<ApplicationUserRoles>();
+
+        // Thuộc tính số dư mới
+        public double Balance { get; set; } = 0.0;  // Số dư tài khoản của người dùng
+
         public ApplicationUser()
         {
             CreatedTime = CoreHelper.SystemTimeNow;
             LastUpdatedTime = CreatedTime;
         }
+        public virtual ICollection<TransactionHistory> TransactionHistories { get; set; } = new List<TransactionHistory>();
+
 
         [ForeignKey("Manager")]
         public Guid? ManagerId { get; set; }

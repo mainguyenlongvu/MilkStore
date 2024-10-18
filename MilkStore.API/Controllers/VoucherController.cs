@@ -27,7 +27,7 @@ namespace MilkStore.API.Controllers
             return Ok(BaseResponse<BasePaginatedList<VoucherResponseDTO>>.OkResponse(paginatedVouchers));
         }
 
-        //[Authorize(Roles = "Staff")]
+        [Authorize(Roles = "Staff")]
         [HttpPost()]
         public async Task<IActionResult> CreateVoucher(VoucherModelView voucherModel)
         {
@@ -35,7 +35,7 @@ namespace MilkStore.API.Controllers
             return Ok(BaseResponse<string>.OkResponse("Tạo voucher thành công!"));
         }
 
-        //[Authorize(Roles = "Staff")]
+        [Authorize(Roles = "Staff")]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateVoucher(string id, VoucherModelView voucherModel)
         {
@@ -43,7 +43,7 @@ namespace MilkStore.API.Controllers
             return Ok(BaseResponse<string>.OkResponse("Cập nhật voucher thành công!"));
         }
 
-        //[Authorize(Roles = "Staff")]
+        [Authorize(Roles = "Staff")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteVoucher(string id)
         {

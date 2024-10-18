@@ -1,5 +1,6 @@
 ﻿using MilkStore.Contract.Repositories.Entity;
 using MilkStore.Core;
+using MilkStore.ModelViews.CustomerModelViews;
 using MilkStore.ModelViews.OrderModelViews;
 using MilkStore.ModelViews.ProductsModelViews;
 using MilkStore.ModelViews.ResponseDTO;
@@ -23,5 +24,6 @@ namespace MilkStore.Contract.Services.Interface
         //Task UpdateInventoryQuantity(string orderId);
         //Task UpdateUserPoint(string orderId);
         Task UpdateOrder(string id, OrderModelView ord, OrderStatus orderStatus, PaymentStatus paymentStatus, PaymentMethod paymentMethod);
+        Task UpdateOrderByCustomer(string id, CustomerOrderAction action, string? newShippingAddress);
     }
 }
