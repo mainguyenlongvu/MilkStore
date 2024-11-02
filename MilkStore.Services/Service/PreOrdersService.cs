@@ -11,6 +11,7 @@ using MilkStore.Core.Base;
 using MilkStore.Core.Constants;
 using MilkStore.Core.Utils;
 using MilkStore.ModelViews.PreOrdersModelView;
+using MilkStore.ModelViews.ResponseDTO;
 using MilkStore.Repositories.Context;
 using MilkStore.Repositories.Entity;
 using System;
@@ -41,6 +42,7 @@ namespace MilkStore.Services.Service
 
         public async Task CreatePreOrders(PreOrdersModelView preOrdersModel)
         {
+            string userID = _httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier).Value;
             Products? product = await _unitOfWork.GetRepository<Products>()
                 .Entities
                 .FirstOrDefaultAsync(p => p.Id == preOrdersModel.ProductID);
@@ -58,11 +60,11 @@ namespace MilkStore.Services.Service
             }
 
             PreOrders newPreOrder = _mapper.Map<PreOrders>(preOrdersModel);
+            newPreOrder.UserID = Guid.Parse(userID);
             newPreOrder.CreatedTime = CoreHelper.SystemTimeNow;
             await _unitOfWork.GetRepository<PreOrders>().InsertAsync(newPreOrder);
             await _unitOfWork.SaveAsync();
 
-            string userID = _httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier).Value;
             ApplicationUser? user = await _userManager.FindByIdAsync(userID);
             if (user is null)
             {
@@ -103,33 +105,35 @@ namespace MilkStore.Services.Service
             await _unitOfWork.SaveAsync();
         }
 
-        public async Task<IEnumerable<PreOrders>> GetPreOrders(string? id, int page, int pageSize)
+        public async Task<BasePaginatedList<PreOdersResponseDTO>> GetPreOders(string? id, int pageIndex, int pageSize)
         {
-            if (id == null)
+            IQueryable<PreOrders> query = _unitOfWork.GetRepository<PreOrders>().Entities;
+            if (pageIndex == 0 || pageSize == 0)
             {
-                IQueryable<PreOrders>? query = _unitOfWork.GetRepository<PreOrders>()
-                    .Entities
-                    .Where(detail => detail.DeletedTime == null)
-                    .OrderBy(detail => detail.ProductID);
-
-
-                BasePaginatedList<PreOrders>? paginated = await _unitOfWork.GetRepository<PreOrders>()
-                .GetPagging(query, page, pageSize);
-
-                return paginated.Items;
-
+                pageSize = 5;
+                pageIndex = 1;
             }
-            else
+            if (!string.IsNullOrWhiteSpace(id))
             {
-                PreOrders? preord = await _unitOfWork.GetRepository<PreOrders>()
-                    .Entities
-                    .FirstOrDefaultAsync(r => r.Id == id && r.DeletedTime == null);
-                if (preord == null)
+                query = query.Where(p => p.Id == id && p.DeletedTime == null);
+
+                var preOrders = await query.FirstOrDefaultAsync();
+                if (preOrders != null)
                 {
-                    throw new KeyNotFoundException($"Pre-order với mã: {id} không tìm thấy.");
+                    var preOdersModel = _mapper.Map<PreOdersResponseDTO>(preOrders);
+                    return new BasePaginatedList<PreOdersResponseDTO>(new List<PreOdersResponseDTO> { preOdersModel }, 1, 1, 1);
                 }
-                return _mapper.Map<List<PreOrders>>(preord);
+                else
+                {
+                    return new BasePaginatedList<PreOdersResponseDTO>(new List<PreOdersResponseDTO>(), 0, pageIndex, pageSize);
+                }
             }
+            query = query.Where(p => p.DeletedTime == null);
+
+            BasePaginatedList<PreOrders> paginatedList = await _unitOfWork.GetRepository<PreOrders>().GetPagging(query, pageIndex, pageSize);
+
+            var preoderModel = _mapper.Map<IEnumerable<PreOdersResponseDTO>>(paginatedList.Items);
+            return new BasePaginatedList<PreOdersResponseDTO>(preoderModel.ToList(), paginatedList.TotalPages, pageIndex, pageSize);
         }
 
         public async Task UpdatePreOrders(string id, PreOrdersModelView preOrdersModel)
@@ -143,7 +147,7 @@ namespace MilkStore.Services.Service
              ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Không có pre-order nào được tìm thấy với mã {id}!");
 
             _mapper.Map(preOrdersModel, preOrders);
-
+            preOrders.UserID = Guid.Parse(userID);
             preOrders.LastUpdatedTime = CoreHelper.SystemTimeNow;
             preOrders.LastUpdatedBy = userID;
 

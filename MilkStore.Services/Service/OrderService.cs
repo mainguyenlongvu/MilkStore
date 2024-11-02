@@ -3,12 +3,15 @@ using MilkStore.ModelViews.OrderModelViews;
 using MilkStore.Contract.Repositories.Entity;
 using MilkStore.Contract.Repositories.Interface;
 using MilkStore.Core.Utils;
+using MilkStore.Repositories.Context;
 using Microsoft.EntityFrameworkCore;
 using MilkStore.ModelViews.ResponseDTO;
 using AutoMapper;
 using MilkStore.Repositories.Entity;
+using MilkStore.Services.EmailSettings;
 using Microsoft.AspNetCore.Identity;
 using MilkStore.Core;
+using System.Drawing.Printing;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 using MilkStore.Core.Base;
@@ -16,7 +19,12 @@ using MilkStore.Core.Constants;
 using PaymentStatus = MilkStore.Contract.Repositories.Entity.PaymentStatus;
 using PaymentMethod = MilkStore.Contract.Repositories.Entity.PaymentMethod;
 using OrderStatus = MilkStore.Contract.Repositories.Entity.OrderStatus;
+using MilkStore.ModelViews.PreOrdersModelView;
+using System;
+using Microsoft.VisualBasic;
+using MilkStore.ModelViews;
 using ShippingType = MilkStore.ModelViews.OrderModelViews.ShippingType;
+using Newtonsoft.Json;
 using MilkStore.ModelViews.CustomerModelViews;
 
 namespace MilkStore.Services.Service

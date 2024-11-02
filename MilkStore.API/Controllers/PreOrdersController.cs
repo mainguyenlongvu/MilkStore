@@ -19,10 +19,10 @@ namespace MilkStore.API.Controllers
             _preOrdersService = preOrdersService;
         }
         [HttpGet]
-        public async Task<IActionResult> GetPreOrders(string? id, int page = 1, int pageSize = 10)
+        public async Task<IActionResult> GetPreOders(string? id, int pageIndex, int pageSize)
         {
-            IList<PreOrders> preords = (IList<PreOrders>)await _preOrdersService.GetPreOrders(id, page, pageSize);
-            return Ok(BaseResponse<IList<PreOrders>>.OkResponse(preords));
+            var result = await _preOrdersService.GetPreOders(id, pageIndex, pageSize);
+            return Ok(result);
         }
         [HttpPost()]
         [Authorize(Roles = "Member")]
