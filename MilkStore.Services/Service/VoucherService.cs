@@ -27,20 +27,20 @@ namespace MilkStore.Services.Service
         public async Task CreateVoucher(VoucherModelView voucherModel)
         {
             // Kiểm tra mã voucher có đúng 6 ký tự không
-            if (!string.IsNullOrWhiteSpace(voucherModel.Code) && voucherModel.Code.Length != 6)
+            if (!string.IsNullOrWhiteSpace(voucherModel.VoucherCode) && voucherModel.VoucherCode.Length != 6)
             {
                 throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Mã voucher phải có đúng 6 ký tự!");
             }
 
             // Kiểm tra mã Code đã nhập hay chưa, nếu chưa nhập thì sinh mã tự động
-            if (string.IsNullOrWhiteSpace(voucherModel.Code))
+            if (string.IsNullOrWhiteSpace(voucherModel.VoucherCode))
             {
-                voucherModel.Code = GenerateVoucherCode(6);  // Tạo mã voucher tự động nếu người dùng không nhập
+                voucherModel.VoucherCode = GenerateVoucherCode(6);  // Tạo mã voucher tự động nếu người dùng không nhập
             }
 
             // Kiểm tra tính duy nhất của mã voucher
             bool isCodeExisted = await _unitOfWork.GetRepository<Voucher>().Entities
-                .AnyAsync(voucher => voucher.VoucherCode == voucherModel.Code && voucher.DeletedTime == null);
+                .AnyAsync(voucher => voucher.VoucherCode == voucherModel.VoucherCode && voucher.DeletedTime == null);
 
             if (isCodeExisted)
             {
@@ -127,22 +127,22 @@ namespace MilkStore.Services.Service
                 ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Không tìm thấy voucher với ID {id}");
 
             // Kiểm tra mã voucher có đúng 6 ký tự không
-            if (!string.IsNullOrWhiteSpace(voucherModel.Code) && voucherModel.Code.Length != 6)
+            if (!string.IsNullOrWhiteSpace(voucherModel.VoucherCode) && voucherModel.VoucherCode.Length != 6)
             {
                 throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Mã voucher phải có đúng 6 ký tự!");
             }
 
             // Nếu không nhập mã code, tạo mã voucher tự động
-            if (string.IsNullOrWhiteSpace(voucherModel.Code))
+            if (string.IsNullOrWhiteSpace(voucherModel.VoucherCode))
             {
-                voucherModel.Code = GenerateVoucherCode(6);  // Tạo mã voucher tự động nếu người dùng không nhập
+                voucherModel.VoucherCode = GenerateVoucherCode(6);  // Tạo mã voucher tự động nếu người dùng không nhập
             }
 
             // Kiểm tra nếu mã Code bị trùng với mã của các voucher khác (ngoại trừ voucher hiện tại)
-            if (!string.IsNullOrWhiteSpace(voucherModel.Code) && voucherModel.Code != existingVoucher.VoucherCode)
+            if (!string.IsNullOrWhiteSpace(voucherModel.VoucherCode) && voucherModel.VoucherCode != existingVoucher.VoucherCode)
             {
                 bool isCodeExisted = await _unitOfWork.GetRepository<Voucher>().Entities
-                    .AnyAsync(voucher => voucher.VoucherCode == voucherModel.Code && voucher.DeletedTime == null && voucher.Id != id);
+                    .AnyAsync(voucher => voucher.VoucherCode == voucherModel.VoucherCode && voucher.DeletedTime == null && voucher.Id != id);
 
                 if (isCodeExisted)
                 {

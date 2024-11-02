@@ -168,7 +168,7 @@ namespace MilkStore.Services.Service
 
             await _unitOfWork.GetRepository<OrderDetails>().UpdateAsync(orderDetails);
             // Cập nhật tổng tiền cho đơn hàng
-            await UpdateOrderTotal(orderDetails.OrderID);
+            //await UpdateOrderTotal(orderDetails.OrderID);
 
             await _unitOfWork.SaveAsync();
             return orderDetails;
