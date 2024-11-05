@@ -153,6 +153,30 @@ namespace MilkStore.Services.Service
 
             await _unitOfWork.GetRepository<PreOrders>().UpdateAsync(preOrders);
             await _unitOfWork.SaveAsync();
+            Products? product = await _unitOfWork.GetRepository<Products>()
+    .Entities
+    .FirstOrDefaultAsync(p => p.Id == preOrdersModel.ProductID);
+            ApplicationUser? user = await _userManager.FindByIdAsync(userID);
+            if (user is null)
+            {
+                throw new KeyNotFoundException($"Người dùng với mã {userID} không tìm thấy.");
+            }
+            string toEmail = _httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.Email).Value;
+            string subject = $"Thông báo đã có sản phầm {product.ProductName}";
+            string body = $@"
+    Xin chào {user.UserName},
+
+    Cảm ơn bạn đã đặt hàng sản phẩm {product.ProductName}. 
+    Sản phẩm bạn đặt hàng hiện đã có hàng
+
+    Thông tin đơn hàng:
+    - Mã sản phẩm: {product.Id}
+    - Tên sản phẩm: {product.ProductName}
+    
+    Trân trọng,
+    Đội ngũ MilkStore";
+
+            await _emailService.SendEmailAsync(toEmail, subject, body);
         }
     }
 }

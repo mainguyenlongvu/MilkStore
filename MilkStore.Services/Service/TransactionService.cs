@@ -69,7 +69,7 @@ namespace MilkStore.Services.Service
                     ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Order not found");
 
                 // Tính tổng giá trị đơn hàng               
-                double totalAmount = order.DiscountedAmount;
+                double totalAmount = Math.Round(order.DiscountedAmount);
 
                 // Tạo mã hóa đơn duy nhất
                 string invoiceCode = $"{shippingAddress}-checkout{DateTime.Now:yyyyMMddHHmmssfff} {order.Id}";

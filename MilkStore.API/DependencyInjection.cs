@@ -211,6 +211,8 @@ namespace MilkStore.API
                 options.IdleTimeout = TimeSpan.FromMinutes(30); // Thời gian timeout cho session
                 options.Cookie.HttpOnly = true; // Cookie chỉ có thể truy cập từ server
                 options.Cookie.IsEssential = true; // Cookie cần thiết cho ứng dụng
+                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                options.Cookie.SameSite = SameSiteMode.None;
             });
         }
     }

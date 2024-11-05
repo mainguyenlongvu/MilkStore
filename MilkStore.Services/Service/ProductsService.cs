@@ -11,6 +11,9 @@ using MilkStore.ModelViews.ProductsModelViews;
 using MilkStore.ModelViews.ResponseDTO;
 using MilkStore.Repositories.Context;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using MilkStore.Repositories.Entity;
+using System.Security.Claims;
 namespace MilkStore.Services.Service
 {
     public class ProductsService : IProductsService
@@ -18,14 +21,16 @@ namespace MilkStore.Services.Service
         private readonly IUnitOfWork _unitOfWork;
         private readonly DatabaseContext context;
         private readonly IMapper _mapper;
+        private readonly IEmailService _emailService;
 
         private readonly ICloudinaryService _cloudinaryService;
-        public ProductsService(DatabaseContext context, IUnitOfWork unitOfWork, IMapper mapper, ICloudinaryService cloudinaryService)
+        public ProductsService(DatabaseContext context, IUnitOfWork unitOfWork, IMapper mapper, ICloudinaryService cloudinaryService, IEmailService emailService)
         {
             this.context = context;
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _cloudinaryService = cloudinaryService;
+            _emailService = emailService;
         }
 
         public async Task<BasePaginatedList<ProductResponseDTO>> GetProductsName(string ProductdName, string CategoryName)
@@ -184,6 +189,26 @@ namespace MilkStore.Services.Service
             {
                 preOrder.DeletedTime = CoreHelper.SystemTimeNow;
                 preOrder.Status = PreOrderStatus.Available;
+
+                var user = preOrder.User;
+                var product = preOrder.Products;
+                string toEmail = user.Email;
+                
+                string subject = $"Thông báo đã có sản phầm {product.ProductName}";
+                string body = $@"
+    Xin chào {user.UserName},
+
+    Cảm ơn bạn đã đặt hàng sản phẩm {product.ProductName}. 
+    Sản phẩm bạn đặt hàng hiện đã có hàng
+
+    Thông tin đơn hàng:
+    - Mã sản phẩm: {product.Id}
+    - Tên sản phẩm: {product.ProductName}
+    
+    Trân trọng,
+    Đội ngũ MilkStore";
+
+                await _emailService.SendEmailAsync(toEmail, subject, body);
                 await _unitOfWork.GetRepository<PreOrders>().UpdateAsync(preOrder);
             }
 
