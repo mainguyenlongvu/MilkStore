@@ -50,10 +50,10 @@ app.UseSession();
 
 app.MapControllers();
 
-//Seed Data
-using (IServiceScope scope = app.Services.CreateScope())
-{
-    IServiceProvider? services = scope.ServiceProvider;
-    SeedDataAccount.SeedAsync(services).Wait();
-}
+////Seed Data
+//using (IServiceScope scope = app.Services.CreateScope())
+//{
+//    IServiceProvider? services = scope.ServiceProvider;
+//    SeedDataAccount.SeedAsync(services).Wait();
+//}
 app.Run();

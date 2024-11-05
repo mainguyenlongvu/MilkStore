@@ -57,6 +57,7 @@ namespace MilkStore.Services.Service
         }
         public string GetUserIdFromSession()
         {
+
             return _httpContextAccessor.HttpContext.Session.GetString("UserID") 
                 ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "Vui lòng đăng nhập!");
         }        
@@ -137,6 +138,7 @@ namespace MilkStore.Services.Service
             // Khởi tạo đơn hàng mới
             Order order = new Order
             {
+                VoucherCode = new List<string>(),
                 UserId = Guid.Parse(userID),
                 CreatedBy = userID,
                 OrderDate = CoreHelper.SystemTimeNow,
@@ -183,7 +185,7 @@ namespace MilkStore.Services.Service
                     Voucher vch = await _unitOfWork.GetRepository<Voucher>().Entities
                         .FirstOrDefaultAsync(v => v.VoucherCode == voucher && !v.DeletedTime.HasValue)
                         ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, $"Không tìm thấy voucher {voucher}");
-
+                    
                     if (vch.ExpiryDate < order.OrderDate)
                     {
                         throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, $"Voucher {voucher} đã hết hạn.");
