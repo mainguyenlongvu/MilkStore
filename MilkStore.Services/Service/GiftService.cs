@@ -27,7 +27,7 @@ namespace MilkStore.Services.Service
             IEnumerable<Gift> g = await _unitOfWork.GetRepository<Gift>().GetAllAsync();
             foreach (var iem in g)
             {
-                if(iem.ProductId.Equals(GiftModel.ProductId, StringComparison.OrdinalIgnoreCase))
+                if(iem.ProductId.Equals(GiftModel.ProductId, StringComparison.OrdinalIgnoreCase) && !iem.DeletedTime.HasValue)
                 {
                     throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Error!!! Same gift");
                 }    
@@ -108,7 +108,7 @@ namespace MilkStore.Services.Service
             IEnumerable<Gift> g = await _unitOfWork.GetRepository<Gift>().GetAllAsync();
             foreach (var iem in g)
             {
-                if (iem.ProductId.Equals(GiftModel.ProductId, StringComparison.OrdinalIgnoreCase))
+                if (iem.ProductId.Equals(GiftModel.ProductId, StringComparison.OrdinalIgnoreCase) && !iem.DeletedTime.HasValue && iem.Id != id)
                 {
                     throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Error!!! Same gift");
                 }
