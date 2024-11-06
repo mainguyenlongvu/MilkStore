@@ -184,7 +184,7 @@ namespace MilkStore.Services.Service
 
             od.DeletedTime = CoreHelper.SystemTimeNow;
             await _unitOfWork.GetRepository<OrderDetails>().UpdateAsync(od);
-            await UpdateOrderTotal(od.OrderID);
+            //await UpdateOrderTotal(od.OrderID);
             await _unitOfWork.SaveAsync();
         }
         private async Task UpdateOrderTotal(string orderId)
