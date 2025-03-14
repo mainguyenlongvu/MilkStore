@@ -97,8 +97,11 @@ namespace MilkStore.API
             services.AddDbContext<DatabaseContext>(options =>
             {
                 options.UseLazyLoadingProxies()
-                       .UseSqlServer(configuration.GetConnectionString("MyCnn")
-                                     ?? throw new Exception("Connection string 'MyCnn' is not set"));
+                       .UseSqlServer(configuration.GetConnectionString("DefaultConnection"),
+                                     sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
+                                         maxRetryCount: 5,
+                                         maxRetryDelay: TimeSpan.FromSeconds(10),
+                                         errorNumbersToAdd: null));
             });
         }
 
@@ -175,13 +178,13 @@ namespace MilkStore.API
         {
             services.AddCors(options =>
             {
-                options.AddPolicy("AllowAllOrigins", builder =>
-                {
-                    builder.WithOrigins(Environment.GetEnvironmentVariable("CLIENT_DOMAIN") ?? throw new Exception("CLIENT_DOMAIN is not set"))
-                            .AllowAnyHeader()
-                            .AllowAnyMethod()
-                            .AllowCredentials();
-                });
+                options.AddPolicy("CorsPolicy",
+                    builder =>
+                    {
+                        builder.WithOrigins("*")
+                               .AllowAnyHeader()
+                               .AllowAnyMethod();
+                    });
             });
         }
         public static void AddAuthenticationGoogle(this IServiceCollection services)
