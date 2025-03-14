@@ -14,6 +14,9 @@ services:
       target: final
     ports:
       - 4000:8080
+    environment:
+      - CLIENT_DOMAIN=http://localhost:4000  # Hoặc thay bằng domain thực tế
+
 
 # The commented out section below is an example of how to define a PostgreSQL
 # database that your application can use. `depends_on` tells Docker Compose to

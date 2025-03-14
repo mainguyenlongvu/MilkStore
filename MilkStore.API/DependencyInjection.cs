@@ -33,7 +33,7 @@ namespace MilkStore.API
             services.AddIdentity();
             services.AddInfrastructure(configuration);
             services.AddServices();
-            services.AddAuthenticationGoogle();
+            //services.AddAuthenticationGoogle();
             services.AddAuthenticationBearer(configuration);
             services.AddAutoMapperConfig();
             services.AddEmailConfig(configuration);
