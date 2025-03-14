@@ -45,46 +45,44 @@ namespace MilkStore.API
         }
         public static void AddAuthenticationBearer(this IServiceCollection services, IConfiguration configuration)
         {
+            var jwtSettings = configuration.GetSection("JwtSettings");
+            var key = Encoding.UTF8.GetBytes(jwtSettings["Key"] ?? throw new Exception("JWT Key is missing in configuration"));
+
             services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
             })
-                .AddJwtBearer(options =>
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    options.TokenValidationParameters = new TokenValidationParameters
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = jwtSettings["Issuer"] ?? throw new Exception("JWT Issuer is missing in configuration"),
+                    ValidAudience = jwtSettings["Audience"] ?? throw new Exception("JWT Audience is missing in configuration"),
+                    IssuerSigningKey = new SymmetricSecurityKey(key)
+                };
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
                     {
-                        ValidateIssuer = true,
-                        ValidateAudience = true,
-                        ValidateLifetime = true,
-                        ValidateIssuerSigningKey = true,
-                        ValidIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? throw new Exception("JWT_ISSUER is not set"),
-                        ValidAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? throw new Exception("JWT_AUDIENCE is not set"),
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWT_KEY") ?? throw new Exception("JWT_KEY is not set")))
-                    };
-                    options.Events = new JwtBearerEvents
-                    {
-                        OnMessageReceived = context =>
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
                         {
-                            var accessToken = context.Request.Query["access_token"];
-                            var path = context.HttpContext.Request.Path;
-                            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
-                            {
-                                if (accessToken.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    context.Token = accessToken.ToString().AsSpan(7).Trim().ToString();
-                                }
-                                else
-                                {
-                                    context.Token = accessToken;
-                                }
-                            }
-                            return Task.CompletedTask;
+                            context.Token = accessToken.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                                ? accessToken.ToString().AsSpan(7).Trim().ToString()
+                                : accessToken;
                         }
-                    };
-                });
-
+                        return Task.CompletedTask;
+                    }
+                };
+            });
         }
+
         public static void ConfigRoute(this IServiceCollection services)
         {
             services.Configure<RouteOptions>(options =>
