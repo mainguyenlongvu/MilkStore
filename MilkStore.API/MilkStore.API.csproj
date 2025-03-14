@@ -29,4 +29,10 @@
     <ProjectReference Include="..\MilkStore.Services\MilkStore.Services.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update=".env">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
