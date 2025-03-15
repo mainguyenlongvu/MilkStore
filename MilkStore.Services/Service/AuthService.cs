@@ -15,12 +15,15 @@ using MilkStore.Contract.Repositories.Entity;
 using Microsoft.Extensions.Caching.Memory;
 using Google.Apis.Auth;
 using MilkStore.Contract.Services.Interface;
+using Microsoft.Extensions.Configuration;
+using CloudinaryDotNet.Actions;
 namespace MilkStore.Services.Service;
 public class AuthService(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager,
       IMapper mapper, IHttpContextAccessor httpContextAccessor,
       RoleManager<ApplicationRole> roleManager, IEmailService emailService, IMemoryCache memoryCache,
-      IUnitOfWork unitOfWork) : IAuthService
+      IUnitOfWork unitOfWork, IConfiguration configuration) : IAuthService
 {
+
     private readonly UserManager<ApplicationUser> userManager = userManager;
     private readonly SignInManager<ApplicationUser> signInManager = signInManager;
     private readonly RoleManager<ApplicationRole> roleManager = roleManager;
@@ -30,6 +33,7 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
     private readonly IMemoryCache memoryCache = memoryCache;
     private readonly IHttpContextAccessor httpContextAccessor = httpContextAccessor;
     #region Private Service
+    private readonly Microsoft.Extensions.Configuration.IConfiguration configuration = configuration;
     private async Task<ApplicationUser> CheckRefreshToken(string refreshToken)
     {
 
@@ -47,31 +51,66 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
     }
     private (string token, IEnumerable<string> roles) GenerateJwtToken(ApplicationUser user)
     {
-        byte[] key = Encoding.ASCII.GetBytes(Environment.GetEnvironmentVariable("JWT_KEY") ?? throw new Exception("JWT_KEY is not set"));
-        List<Claim> claims = new List<Claim> {
-            new(ClaimTypes.NameIdentifier,user.Id.ToString()),
-            new Claim(ClaimTypes.Email, user.Email)
+        string key = configuration["JwtSettings:Key"] ?? throw new Exception("JWT Key is missing in configuration");
+        string issuer = configuration["JwtSettings:Issuer"] ?? throw new Exception("JWT Issuer is missing in configuration");
+        string audience = configuration["JwtSettings:Audience"] ?? throw new Exception("JWT Audience is missing in configuration");
+
+        byte[] keyBytes = Encoding.ASCII.GetBytes(key);
+
+        List<Claim> claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Email, user.Email)
         };
-        IEnumerable<string> roles = userManager.GetRolesAsync(user: user).Result;
+
+        IEnumerable<string> roles = userManager.GetRolesAsync(user).Result;
         foreach (string role in roles)
         {
             claims.Add(new Claim(ClaimTypes.Role, role));
         }
+
         SecurityTokenDescriptor tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.AddHours(1),
-            Issuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? throw new Exception("JWT_ISSUER is not set"),
-            Audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? throw new Exception("JWT_AUDIENCE is not set"),
-            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            Issuer = issuer,
+            Audience = audience,
+            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(keyBytes), SecurityAlgorithms.HmacSha256Signature)
         };
+
         JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler();
         SecurityToken token = tokenHandler.CreateToken(tokenDescriptor);
+
         return (tokenHandler.WriteToken(token), roles);
     }
     private async Task<string> GenerateRefreshToken(ApplicationUser user)
     {
-        string? refreshToken = Guid.NewGuid().ToString();
+        DateTime now = DateTime.UtcNow;
+        // Common claims for both tokens
+        List<Claim> claims = new List<Claim>
+    {
+        new Claim("id", user.Id.ToString()),
+        // assign 
+        new Claim("exp", now.Ticks.ToString())
+    };
+        var keyString = configuration.GetSection("JwtSettings:Key").Value ?? string.Empty;
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyString));
+
+        var claimsIdentity = new ClaimsIdentity(claims, "Bearer");
+        var principal = new ClaimsPrincipal(new[] { claimsIdentity });
+        httpContextAccessor.HttpContext.User = principal;
+
+        Console.WriteLine("Check Key:", key);
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature);
+        // Generate refresh token
+        var refreshToken = new JwtSecurityToken(
+            claims: claims,
+        issuer: configuration.GetSection("JwtSettings:Issuer").Value,
+        audience: configuration.GetSection("JwtSettings:Audience").Value,
+        expires: DateTime.UtcNow.AddMinutes(30),
+            signingCredentials: creds
+        );
+        var refreshTokenString = new JwtSecurityTokenHandler().WriteToken(refreshToken);
 
         string? initToken = await userManager.GetAuthenticationTokenAsync(user, "Default", "RefreshToken");
         if (initToken != null)
@@ -81,8 +120,8 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
 
         }
 
-        await userManager.SetAuthenticationTokenAsync(user, "Default", "RefreshToken", refreshToken);
-        return refreshToken;
+        await userManager.SetAuthenticationTokenAsync(user, "Default", "RefreshToken", refreshTokenString);
+        return refreshTokenString;
     }
     private string GenerateOtp()
     {

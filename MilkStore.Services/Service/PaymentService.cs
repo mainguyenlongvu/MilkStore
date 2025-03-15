@@ -47,7 +47,7 @@ public class PaymentService : IPaymentService
         //vnpay.AddRequestData("vnp_OrderType", "other");
 
         //string returnUrl = $"{Environment.GetEnvironmentVariable("CLIENT_DOMAIN")}";
-        string returnUrl = $"{Environment.GetEnvironmentVariable("SERVER_DOMAIN")}/api/payment/ipn";
+        string returnUrl = $"http://milkstore-001-site1.atempurl.com//api/payment/ipn/api/payment/ipn";
         vnpay.AddRequestData("vnp_ReturnUrl", returnUrl ?? throw new Exception("SERVER_DOMAIN is not set"));
         vnpay.AddRequestData("vnp_TxnRef", DateTime.Now.ToString("yyyyMMddHHmmssfff"));
         vnpay.AddRequestData("vnp_ExpireDate", DateTime.Now.AddMinutes(30).ToString("yyyyMMddHHmmss"));
