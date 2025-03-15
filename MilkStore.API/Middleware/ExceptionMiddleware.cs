@@ -23,6 +23,10 @@ namespace MilkStore.API.Middleware
         {
             context.Response.ContentType = "application/json";
             context.Response.StatusCode = (int)statusCode;
+            if(statusCode == Core.Constants.StatusCodes.Unauthorized)
+            {
+                context.Response.Headers.WWWAuthenticate = "Bearer";
+            }
 
             var response = new
             {

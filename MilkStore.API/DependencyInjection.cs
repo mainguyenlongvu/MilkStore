@@ -133,7 +133,7 @@ namespace MilkStore.API
             services.AddScoped<IStatisticalService, StatisticalService>();
             services.AddScoped<IStatisticalProductService, StatisticalProductService>();
             services.AddScoped<ITransactionService, TransactionService>();
-            services.AddSingleton<ICloudinaryService,CloudinaryService>();
+            services.AddSingleton<ICloudinaryService, CloudinaryService>();
             services.AddHttpContextAccessor();
         }
 
@@ -180,6 +180,7 @@ namespace MilkStore.API
                     builder =>
                     {
                         builder.WithOrigins("*")
+                        .WithExposedHeaders("WWW-Authenticate")
                                .AllowAnyHeader()
                                .AllowAnyMethod();
                     });
@@ -206,8 +207,8 @@ namespace MilkStore.API
             services.Configure<DataProtectionTokenProviderOptions>(options =>
                     options.TokenLifespan = TimeSpan.FromMinutes(30));
         }
-        public static void ConfigureSession (this IServiceCollection services)
-        {            
+        public static void ConfigureSession(this IServiceCollection services)
+        {
             services.AddDistributedMemoryCache(); // Cấu hình cache cho session
             services.AddSession(options =>
             {
