@@ -57,9 +57,7 @@ public class PaymentService : IPaymentService
         //vnpay.AddRequestData("vnp_ExpireDate", currentTime.AddMinutes(30).ToString("yyyyMMddHHmmss"));
 
 
-        string paymentUrl = vnpay.CreateRequestUrl(Environment.GetEnvironmentVariable("VNPAY_URL") ??
-            throw new Exception("VNPAY_URL is not set"), Environment.GetEnvironmentVariable("VNPAY_KEY") ??
-            throw new Exception("VNPAY_KEY is not set"));
+        string paymentUrl = vnpay.CreateRequestUrl("https://sandbox.vnpayment.vn/paymentv2/vpcpay.html", "FC858VKW5RIH1YERAP49E2V55UOYQ6K2");
 
         return paymentUrl;
     }
@@ -78,7 +76,7 @@ public class PaymentService : IPaymentService
                 vnpay.AddResponseData(name, value);
             }
         }
-        bool isValidSignature = vnpay.ValidateSignature(request.vnp_SecureHash, Environment.GetEnvironmentVariable("VNPAY_KEY") ?? throw new Exception("VNPAY_KEY is not set"));
+        bool isValidSignature = vnpay.ValidateSignature(request.vnp_SecureHash, "FC858VKW5RIH1YERAP49E2V55UOYQ6K2");
         if (!isValidSignature)
         {
             throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Signature is not valid");
