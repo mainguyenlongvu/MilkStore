@@ -207,7 +207,8 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
         newUser.UserName = registerModelView.Email;
 
         string ManagerId = await AssignMemberToStaffAsync();
-
+        string OTP = GenerateOtp();
+        newUser.EmailCode = OTP;
         newUser.ManagerId = Guid.Parse(ManagerId);
         newUser.Name = registerModelView.Name;
 
@@ -220,9 +221,6 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
                 await roleManager.CreateAsync(new ApplicationRole { Name = "Member" });
             }
             await userManager.AddToRoleAsync(newUser, "Member");
-            string OTP = GenerateOtp();
-            string cacheKey = $"OTP_{registerModelView.Email}";
-            memoryCache.Set(cacheKey, OTP, TimeSpan.FromMinutes(1));
 
             await emailService.SendEmailAsync(registerModelView.Email, "Xác nhận tài khoản",
                        $"Vui lòng xác nhận tài khoản của bạn, OTP của bạn là:  <div class='otp'>{OTP}</div>");
@@ -234,25 +232,14 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
     }
     public async Task VerifyOtp(ConfirmOTPModel model, bool isResetPassword)
     {
+        var user = await unitOfWork.GetRepository<ApplicationUser>().Entities.FirstOrDefaultAsync(x=>x.Email == model.Email && !x.DeletedTime.HasValue) ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Không tìm thấy mail");
 
-        string cacheKey = isResetPassword ? $"OTPResetPassword_{model.Email}" : $"OTP_{model.Email}";
-        if (memoryCache.TryGetValue(cacheKey, out string storedOtp))
+
+        if (user.EmailCode == model.OTP)
         {
-            if (storedOtp == model.OTP)
-            {
-
-                ApplicationUser? user = await userManager.FindByEmailAsync(model.Email);
-
-
-                string? token = await userManager.GenerateEmailConfirmationTokenAsync(user);
-                await userManager.ConfirmEmailAsync(user, token);
-
-                memoryCache.Remove(cacheKey);
-            }
-            else
-            {
-                throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "OTP không hợp lệ");
-            }
+            user.EmailConfirmed = true;
+            await unitOfWork.GetRepository<ApplicationUser>().UpdateAsync(user);
+            await unitOfWork.SaveAsync();
         }
         else
         {
@@ -262,13 +249,10 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
 
     public async Task ResendConfirmationEmail(EmailModelView emailModelView)
     {
+        var user = await unitOfWork.GetRepository<ApplicationUser>().Entities.FirstOrDefaultAsync(x => x.Email == emailModelView.Email && !x.DeletedTime.HasValue) ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Không tìm thấy Email");
+        
         string OTP = GenerateOtp();
-        string cacheKey = $"OTP_{emailModelView.Email}";
-        if (memoryCache.TryGetValue(cacheKey, out string cachedValue))
-        {
-            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "OTP đã được gửi, vui lòng kiểm tra email của bạn để xác nhận tài khoản của bạn");
-        }
-        memoryCache.Set(cacheKey, OTP, TimeSpan.FromMinutes(1));
+        user.EmailCode = OTP;
         await emailService.SendEmailAsync(emailModelView.Email, "Xác nhận tài khoản",
                    $"Vui lòng xác nhận tài khoản của bạn, OTP của bạn là:  <div class='otp'>{OTP}</div>");
     }
@@ -314,26 +298,16 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
 
     public async Task ForgotPassword(EmailModelView emailModelView)
     {
-        ApplicationUser? user = await userManager.FindByEmailAsync(emailModelView.Email)
-         ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Vui lòng kiểm tra email của bạn");
-        if (!await userManager.IsEmailConfirmedAsync(user))
-        {
-            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Vui lòng kiểm tra email của bạn");
-        }
+        var user = await unitOfWork.GetRepository<ApplicationUser>().Entities.FirstOrDefaultAsync(x => x.Email == emailModelView.Email && !x.DeletedTime.HasValue) ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Không tìm thấy mail");
+
         string OTP = GenerateOtp();
-        string cacheKey = $"OTPResetPassword_{emailModelView.Email}";
-        memoryCache.Set(cacheKey, OTP, TimeSpan.FromMinutes(1));
+        user.Email = OTP;
         await emailService.SendEmailAsync(emailModelView.Email, "Đặt lại mật khẩu",
                    $"Vui lòng xác nhận tài khoản của bạn, OTP của bạn là:  <div class='otp'>{OTP}</div>");
     }
     public async Task ResetPassword(ResetPasswordModel resetPasswordModel)
     {
-        ApplicationUser? user = await userManager.FindByEmailAsync(resetPasswordModel.Email)
-         ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Không tìm thấy user");
-        if (!await userManager.IsEmailConfirmedAsync(user))
-        {
-            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Vui lòng kiểm tra email của bạn");
-        }
+        var user = await unitOfWork.GetRepository<ApplicationUser>().Entities.FirstOrDefaultAsync(x => x.Email == resetPasswordModel.Email && !x.DeletedTime.HasValue) ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Không tìm thấy mail");
         string? token = await userManager.GeneratePasswordResetTokenAsync(user);
         IdentityResult? result = await userManager.ResetPasswordAsync(user, token, resetPasswordModel.Password);
         if (!result.Succeeded)

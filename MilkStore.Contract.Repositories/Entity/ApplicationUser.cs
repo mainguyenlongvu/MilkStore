@@ -15,13 +15,13 @@ namespace MilkStore.Repositories.Entity
         public string? CreatedBy { get; set; }
         public string? LastUpdatedBy { get; set; }
         public string? DeletedBy { get; set; }
+        public string? EmailCode { get; set; }
         public DateTimeOffset CreatedTime { get; set; }
         public DateTimeOffset LastUpdatedTime { get; set; }
         public DateTimeOffset? DeletedTime { get; set; }
         public virtual ICollection<ApplicationUserLogins> Logins { get; set; } = new List<ApplicationUserLogins>();
         public virtual ICollection<ApplicationUserRoles> UserRoles { get; set; } = new List<ApplicationUserRoles>();
 
-        // Thuộc tính số dư mới
         public double Balance { get; set; } = 0.0;  // Số dư tài khoản của người dùng
 
         public ApplicationUser()
