@@ -17,6 +17,7 @@ using Google.Apis.Auth;
 using MilkStore.Contract.Services.Interface;
 using Microsoft.Extensions.Configuration;
 using CloudinaryDotNet.Actions;
+using SQLitePCL;
 namespace MilkStore.Services.Service;
 public class AuthService(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager,
       IMapper mapper, IHttpContextAccessor httpContextAccessor,
@@ -253,6 +254,7 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
         
         string OTP = GenerateOtp();
         user.EmailCode = OTP;
+        await unitOfWork.SaveAsync();
         await emailService.SendEmailAsync(emailModelView.Email, "Xác nhận tài khoản",
                    $"Vui lòng xác nhận tài khoản của bạn, OTP của bạn là:  <div class='otp'>{OTP}</div>");
     }
