@@ -254,6 +254,7 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
         
         string OTP = GenerateOtp();
         user.EmailCode = OTP;
+        await unitOfWork.GetRepository<ApplicationUser>().UpdateAsync(user);
         await unitOfWork.SaveAsync();
         await emailService.SendEmailAsync(emailModelView.Email, "Xác nhận tài khoản",
                    $"Vui lòng xác nhận tài khoản của bạn, OTP của bạn là:  <div class='otp'>{OTP}</div>");
