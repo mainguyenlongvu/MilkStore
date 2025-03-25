@@ -54,10 +54,10 @@ namespace MilkStore.Services.Service
                 throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Your cart is empty. Please add items to cart before checkout.");
             }
 
-            
+
             if (paymentMethod == PaymentMethod.Online)
             {
-                
+
                 // Tạo đơn hàng
                 await _orderService.AddAsync(voucherCode, cartItems, paymentMethod, shippingAddress);
 
@@ -85,8 +85,8 @@ namespace MilkStore.Services.Service
 
                 return paymentUrl;
 
-            }            
-            else
+            }
+            else /*if (paymentMethod == PaymentMethod.UserWallet)*/
             {
                 // Tạo đơn hàng
                 await _orderService.AddAsync(voucherCode, cartItems, paymentMethod, shippingAddress);
@@ -103,11 +103,11 @@ namespace MilkStore.Services.Service
                 await _unitOfWork.GetRepository<OrderDetails>().BulkUpdateAsync(orderDetails);
                 await _unitOfWork.SaveAsync();
 
-                if(paymentMethod == PaymentMethod.UserWallet)
+                if (paymentMethod == PaymentMethod.UserWallet)
                 {
                     var user = await _unitOfWork.GetRepository<ApplicationUser>().GetByIdAsync(Guid.Parse(userID))
                         ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "User not found");
-                    if(user.Balance < order.DiscountedAmount)
+                    if (user.Balance < order.DiscountedAmount)
                     {
                         throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Số dư không đủ để thanh toán đơn hàng.");
                     }
@@ -122,7 +122,7 @@ namespace MilkStore.Services.Service
                         Content = $"Thanh toán đơn hàng {order.Id}"
                     });
 
-                    if(shippingAddress == ShippingType.InStore)
+                    if (shippingAddress == ShippingType.InStore)
                     {
                         await _orderService.UpdateOrder(order.Id, new OrderModelView
                         {
@@ -136,15 +136,34 @@ namespace MilkStore.Services.Service
                             ShippingAddress = order.ShippingAddress,
                         }, OrderStatus.Pending, PaymentStatus.Paid, PaymentMethod.UserWallet);
                     }
-                    
+
+                }
+                else if (paymentMethod == PaymentMethod.ZaloPay)
+                {
+
+                    if (shippingAddress == ShippingType.InStore)
+                    {
+                        await _orderService.UpdateOrder(order.Id, new OrderModelView
+                        {
+                            ShippingAddress = order.ShippingAddress,
+                        }, OrderStatus.Delivered, PaymentStatus.Paid, PaymentMethod.ZaloPay);
+                    }
+                    else
+                    {
+                        await _orderService.UpdateOrder(order.Id, new OrderModelView
+                        {
+                            ShippingAddress = order.ShippingAddress,
+                        }, OrderStatus.Pending, PaymentStatus.Paid, PaymentMethod.ZaloPay);
+                    }
                 }
                 return "Đặt hàng thành công! Vui lòng kiểm tra email để theo dõi đơn hàng!";
 
             }
+            
         }
         public async Task<string> Topup(double amount)
         {
-            if(amount <= 0)
+            if (amount <= 0)
             {
                 throw new BaseException.ErrorException(Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Số tiền không hợp lệ");
             }
@@ -154,7 +173,7 @@ namespace MilkStore.Services.Service
             }
             string userID = _httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier)
                 ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.Unauthorized, ErrorCode.Unauthorized, "User not found");
-            var _paymentService = _serviceProvider.GetRequiredService<IPaymentService>();            
+            var _paymentService = _serviceProvider.GetRequiredService<IPaymentService>();
 
             var paymentRequest = new PaymentRequest
             {
@@ -167,14 +186,14 @@ namespace MilkStore.Services.Service
 
             return paymentUrl;
         }
-        public async Task<BasePaginatedList<TransactionHistoryResponseDTO>> GetAllTransactionHistoryAsync(string? userId, TransactionType? transactionType,DateTime? fromDate,DateTime? toDate,int? month,int? year,int pageIndex,int pageSize)
+        public async Task<BasePaginatedList<TransactionHistoryResponseDTO>> GetAllTransactionHistoryAsync(string? userId, TransactionType? transactionType, DateTime? fromDate, DateTime? toDate, int? month, int? year, int pageIndex, int pageSize)
         {
             // Bắt đầu truy vấn từ bảng Transaction với điều kiện không bị xóa và người dùng phù hợp
             IQueryable<TransactionHistory>? query = _unitOfWork.GetRepository<TransactionHistory>()
                 .Entities
                 .AsNoTracking()
                 .Where(transaction => transaction.DeletedTime == null);
-            if(!string.IsNullOrWhiteSpace(userId))
+            if (!string.IsNullOrWhiteSpace(userId))
             {
                 query = query.Where(transaction => transaction.UserId == Guid.Parse(userId));
             }

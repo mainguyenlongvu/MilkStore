@@ -22,7 +22,8 @@ namespace MilkStore.Contract.Repositories.Entity
     {
         UserWallet,
         Online,
-        COD
+        COD,
+        ZaloPay
     }
     public enum PaymentStatus
     {
