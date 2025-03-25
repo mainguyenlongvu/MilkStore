@@ -106,7 +106,7 @@ namespace MilkStore.Services.Service
 
         public async Task AddAsync(List<string>? voucherCode, List<OrderDetails> orderItems, PaymentMethod paymentMethod, ShippingType shippingAddress)
         {
-            string userID = GetUserIdFromSession();
+            string userID = GetCurrentUserId();
             var user = await _userManager.FindByIdAsync(userID)
                 ?? throw new BaseException.ErrorException(Core.Constants.StatusCodes.NotFound, ErrorCode.NotFound, "Không tìm thấy người dùng");
 
@@ -261,7 +261,7 @@ namespace MilkStore.Services.Service
         //}
         public async Task UpdateOrder(string id, OrderModelView ord, OrderStatus orderStatus, PaymentStatus paymentStatus, PaymentMethod paymentMethod)
         {
-            string userID = GetUserIdFromSession();
+            string userID = GetCurrentUserId();
             
             var order = await _unitOfWork.GetRepository<Order>().Entities
                 .Include(o => o.OrderDetailss) // Bao gồm OrderDetails để cập nhật tồn kho
