@@ -250,6 +250,11 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
 
     public async Task ResendConfirmationEmail(EmailModelView emailModelView)
     {
+        if (string.IsNullOrWhiteSpace(emailModelView.Email))
+        {
+            throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Email không được để trống!");
+        }
+
         var user = await unitOfWork.GetRepository<ApplicationUser>().Entities.FirstOrDefaultAsync(x => x.Email == emailModelView.Email && !x.DeletedTime.HasValue) ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Không tìm thấy Email");
         
         string OTP = GenerateOtp();
@@ -297,7 +302,6 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
             }
         };
     }
-
 
     public async Task ForgotPassword(EmailModelView emailModelView)
     {

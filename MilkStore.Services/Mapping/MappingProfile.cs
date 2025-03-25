@@ -16,6 +16,7 @@ using MilkStore.ModelViews.OrderGiftModelViews;
 using MilkStore.ModelViews.AuthModelViews;
 using MilkStore.ModelViews.OrderDetailGiftModelView;
 using MilkStore.ModelViews.RoleModelView;
+using MilkStore.Core.Utils;
 
 
 namespace MilkStore.Services.Mapping
@@ -54,12 +55,14 @@ namespace MilkStore.Services.Mapping
                     Price = pp.Product.Price,
                     QuantityInStock = pp.Product.QuantityInStock,
                     ImageUrl = pp.Product.ImageUrl,
-                    CategoryId = pp.Product.CategoryId
+                    CategoryId = pp.Product.CategoryId,
+                    CategoryName = pp.Product.Category.CategoryName,
                 }).ToList()));
             #endregion
 
             CreateMap<ProductsModel, Products>();
-            CreateMap<Products, ProductResponseDTO>();
+            CreateMap<Products, ProductResponseDTO>()
+                .ForMember(dest => dest.CategoryName, opt => opt.MapFrom(src => src.Category.CategoryName));
             CreateMap<UserModelView, ApplicationUser>()
             .ForMember(dest => dest.Points, opt => opt.MapFrom(src => 0)) // Set Points to 0
             .ForMember(dest => dest.CreatedTime, opt => opt.MapFrom(src => DateTimeOffset.UtcNow));
