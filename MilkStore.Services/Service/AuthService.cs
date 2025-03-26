@@ -233,7 +233,7 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
     }
     public async Task VerifyOtp(ConfirmOTPModel model, bool isResetPassword)
     {
-        var user = await unitOfWork.GetRepository<ApplicationUser>().Entities.FirstOrDefaultAsync(x=>x.Email == model.Email && !x.DeletedTime.HasValue) ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Không tìm thấy mail");
+        var user = await unitOfWork.GetRepository<ApplicationUser>().Entities.FirstOrDefaultAsync(x => x.Email == model.Email && !x.DeletedTime.HasValue) ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Không tìm thấy mail");
 
 
         if (user.EmailCode == model.OTP)
@@ -256,7 +256,7 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
         }
 
         var user = await unitOfWork.GetRepository<ApplicationUser>().Entities.FirstOrDefaultAsync(x => x.Email == emailModelView.Email && !x.DeletedTime.HasValue) ?? throw new BaseException.ErrorException(MilkStore.Core.Constants.StatusCodes.BadRequest, ErrorCode.BadRequest, "Không tìm thấy Email");
-        
+
         string OTP = GenerateOtp();
         user.EmailCode = OTP;
         await unitOfWork.GetRepository<ApplicationUser>().UpdateAsync(user);
@@ -309,6 +309,8 @@ public class AuthService(UserManager<ApplicationUser> userManager, SignInManager
 
         string OTP = GenerateOtp();
         user.Email = OTP;
+        await unitOfWork.GetRepository < ApplicationUser >().UpdateAsync(user);
+        await unitOfWork.SaveAsync();
         await emailService.SendEmailAsync(emailModelView.Email, "Đặt lại mật khẩu",
                    $"Vui lòng xác nhận tài khoản của bạn, OTP của bạn là:  <div class='otp'>{OTP}</div>");
     }
